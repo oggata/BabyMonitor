@@ -1,6 +1,7 @@
 package TCP;
 
 import android.app.Activity;
+import android.content.BroadcastReceiver;
 import android.os.Handler;
 import android.os.Message;
 import android.util.Log;
@@ -358,6 +359,8 @@ public class TCPConnection {
     public boolean isPreformConnectionCheck() {
         return preformConnectionCheck;
     }
+
+    private BroadcastReceiver wifiS
 }
 
 /*    public void write(Msg msg){
