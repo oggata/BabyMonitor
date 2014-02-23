@@ -78,6 +78,7 @@
             android:id="@+id/btn_disconnect"
             android:visibility="invisible"
             android:layout_centerHorizontal="true"
+            android:layout_above="@+id/btn_stop_play"
             android:layout_centerVertical="true"/>
 
         <Button

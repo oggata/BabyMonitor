@@ -9,6 +9,8 @@ public interface WifiStatesListener {
 
     public void onDisabled();
 
-    public void onConnectedToNetwork(String networkName);
+    public void onConnected(String networkName);
+
+    public void onDisconnected();
 
 }

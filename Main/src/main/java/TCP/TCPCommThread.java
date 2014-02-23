@@ -158,7 +158,10 @@ public class TCPCommThread extends Thread {
                             }
                         });
 
-                        loadAndPlayStream.start();
+                        if (!loadAndPlayStream.isAlive())
+                            loadAndPlayStream.start();
+
+                        loadAndPlayStream.startAudio();
                     }
 
                     playLiveAudio = false;
@@ -255,6 +258,8 @@ public class TCPCommThread extends Thread {
         else
             Log.d(TAG, "Already Playing");
 
+        // TODO Method is thread safe can be moved outside of thread
+
     }
 
     /** Stop Playing live audio*/
@@ -264,7 +269,6 @@ public class TCPCommThread extends Thread {
 
         loadAndPlayStream = null;
     }
-
 
     /** Start Recording live audio*/
     private void recordLiveAudio(){
@@ -369,14 +373,22 @@ public class TCPCommThread extends Thread {
     public interface AudioController{
         public void play();
         public void stop();
+        /** Toggle the audio stream ON to OFF or OFF to ON
+         * @return  <b>false-</b> if stream had been stopped <b>true-</b> if stream had been started*/
+        public boolean toggle();
+        public boolean isPlaying();
     }
 
     public interface RecordController{
         public void record();
         public void stop();
+        /** Toggle the record stream ON to OFF or OFF to ON
+         * @return  <b>false-</b> if stream had been stopped <b>true-</b> if stream had been started*/
+        public boolean toggle();
+        public boolean isRecording();
     }
 
-    // An implantation of the RecordController Interface for a better controlling in the stream.
+   // An implantation of the RecordController Interface for a better controlling in the stream.
     private RecordController recordController = new RecordController() {
         @Override
         public void record() {
@@ -386,6 +398,26 @@ public class TCPCommThread extends Thread {
         @Override
         public void stop() {
             stopRecord();
+        }
+
+       @Override
+       /** Toggle the record stream ON to OFF or OFF to ON
+        * return false if stream had been stopped
+        *  return true if stream had been started*/
+       public boolean toggle() {
+           if (isRecording())
+           {
+               stop();
+               return false;
+           }
+
+           record();
+           return true;
+       }
+
+       @Override
+        public boolean isRecording() {
+            return recodedAndSendAudioStream != null && recodedAndSendAudioStream.isRecording();
         }
     };
 
@@ -400,6 +432,24 @@ public class TCPCommThread extends Thread {
         @Override
         public void stop() {
             stopLiveAudio();
+        }
+
+        @Override
+
+        public boolean toggle() {
+            if(isPlaying())
+            {
+                stop();
+                return false;
+            }
+
+            play();
+            return true;
+        }
+
+        @Override
+        public boolean isPlaying() {
+            return loadAndPlayStream != null && loadAndPlayStream.isPlaying();
         }
     };
 

@@ -29,6 +29,7 @@ public class TCPServerConnectionThread extends Thread{
     private String serverIp;
 
     public TCPServerConnectionThread(String ip, int serverPort){
+        Log.i(TAG, "Starting Connection Thread As Client");
         serverIp = ip;
         this.serverPort = serverPort;
 
@@ -37,7 +38,7 @@ public class TCPServerConnectionThread extends Thread{
 
 
     public TCPServerConnectionThread(int serverPort){
-        Log.i(TAG, "Starting server port");
+        Log.i(TAG, "Starting Connection Thread As Server");
         this.serverPort = serverPort;
 
         try {
@@ -61,6 +62,12 @@ public class TCPServerConnectionThread extends Thread{
                 connectToServer();
         }
 
+        try {
+            if (serverSocket != null)
+                 serverSocket.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
 //        try {
 //            if (serverSocket != null)
 //            {
@@ -83,6 +90,10 @@ public class TCPServerConnectionThread extends Thread{
         close = true;
     }
 
+    public boolean isClosed(){
+        return close;
+    }
+
     public void setHandler(Handler handler) {
         this.handler = handler;
     }
@@ -103,7 +114,7 @@ public class TCPServerConnectionThread extends Thread{
 
                     socket.setTcpNoDelay(true);
 
-                    socket.setSoTimeout(SERVER_SO_TIMEOUT);
+//                    socket.setSoTimeout(SERVER_SO_TIMEOUT);
 
                     successMsg();
 

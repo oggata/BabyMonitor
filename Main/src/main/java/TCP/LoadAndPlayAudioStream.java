@@ -22,6 +22,7 @@ class LoadAndPlayAudioStream extends Thread {
     private AudioStreamPlayer player;
     private int bufferCount = 0, sampleRate;
     private long fileSize;
+    private boolean isPlaying = false;
 
     private InputStream inStream;
 
@@ -44,63 +45,68 @@ class LoadAndPlayAudioStream extends Thread {
     public void run() {
         while (!isInterrupted())
         {
-            try {
-                if(inStream.available() > 0)
-                {
-                    Log.d(TAG, "Available Bytes: " + inStream.available());
-
-                    if (player == null && inStream.available() > MAX_BYTE_IN_BUFFER_BEFORE_SKIP)
+            if (isPlaying)
+            {
+                try {
+                    if(inStream.available() > 0)
                     {
-                        Log.d(TAG, "Buffer was to full bytes skipped, Number skipped: "
-                                + (inStream.available() - MIN_BYTE_NUMBER_TO_KEEP_IN_BUFFER ));
+                        Log.d(TAG, "Available Bytes: " + inStream.available());
 
-                        inStream.skip(inStream.available() - MIN_BYTE_NUMBER_TO_KEEP_IN_BUFFER);
-                    }
+                        if (player == null && inStream.available() > MAX_BYTE_IN_BUFFER_BEFORE_SKIP)
+                        {
+                            Log.d(TAG, "Buffer was to full bytes skipped, Number skipped: "
+                                    + (inStream.available() - MIN_BYTE_NUMBER_TO_KEEP_IN_BUFFER ));
+
+                            inStream.skip(inStream.available() - MIN_BYTE_NUMBER_TO_KEEP_IN_BUFFER);
+                        }
 
 //                            Log.d(TAG, "Available Bytes: " + mmInStream.available());
 
-                    IOUtils.readFully(inStream, bytesFromStream);
+                        IOUtils.readFully(inStream, bytesFromStream);
 
-                    bufferCount += bytesFromStream.length;
+                        bufferCount += bytesFromStream.length;
 
-                    // Creating the player
-                    if (player == null)
-                    {
-                        // Start the play sound thread.
-                        new Thread(new Runnable() {
-                            @Override
-                            public void run() {
-                                player =new AudioStreamPlayer(bytesFromStream, sampleRate);
+                        // Creating the player
+                        if (player == null)
+                        {
+                            // Start the play sound thread.
+                            new Thread(new Runnable() {
+                                @Override
+                                public void run() {
+                                    player =new AudioStreamPlayer(bytesFromStream, sampleRate);
 
-                                new Thread(player).start();
+                                    new Thread(player).start();
+                                }
+                            }).start();
+
+                            try {
+                                Log.d(TAG, "SHORT SLEEP FOR INIT");
+                                Thread.currentThread().sleep(100);
+
+                                player.setMarker(fileSize);
+                            } catch (InterruptedException e) {
+                                e.printStackTrace();
                             }
-                        }).start();
-
-                        try {
-                            Log.d(TAG, "SHORT SLEEP FOR INIT");
-                            Thread.currentThread().sleep(100);
-
-                            player.setMarker(fileSize);
-                        } catch (InterruptedException e) {
-                            e.printStackTrace();
                         }
+                        else
+                            player.write(bytesFromStream);
+
                     }
-                    else
-                        player.write(bytesFromStream);
+                } catch (IOException e) {
 
+                    if (audioStreamForcedStoppedListener != null)
+                        audioStreamForcedStoppedListener.stopped();
+                    else Log.e(TAG, " No audio stream forced stop listener");
+
+                    stopAudio();
+                    e.printStackTrace();
                 }
-            } catch (IOException e) {
-
-                if (audioStreamForcedStoppedListener != null)
-                    audioStreamForcedStoppedListener.stopped();
-                else Log.e(TAG, " No audio stream forced stop listener");
-
-                stopAudio();
-                e.printStackTrace();
             }
         }
+    }
 
-        stopAudio();
+    public void startAudio(){
+        isPlaying = true;
     }
 
     /** Closing the connection and stopping the stream player if playing */
@@ -108,8 +114,11 @@ class LoadAndPlayAudioStream extends Thread {
 
         Log.i(TAG, "Closing the audio stream");
 
+
         if (player != null)
             player.stop();
+
+        isPlaying = false;
 
         interrupt();
     }
@@ -119,7 +128,7 @@ class LoadAndPlayAudioStream extends Thread {
     }
 
     public synchronized boolean isPlaying(){
-        return player != null && player.isPlaying();
+        return isPlaying;
     }
 
 }

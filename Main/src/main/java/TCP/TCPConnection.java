@@ -2,6 +2,14 @@ package TCP;
 
 import android.app.Activity;
 import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
+import android.net.wifi.SupplicantState;
+import android.net.wifi.WifiInfo;
+import android.net.wifi.WifiManager;
 import android.os.Handler;
 import android.os.Message;
 import android.util.Log;
@@ -14,6 +22,7 @@ import java.sql.Connection;
  * Created by itzik on 11/18/13.
  */
 public class TCPConnection {
+    //TODO work on connection check
     private final String TAG = Connection.class.getSimpleName();
 
     /*Key's*/
@@ -24,6 +33,12 @@ public class TCPConnection {
     public static final String CONNECTION_MESSAGE = "connection.message";
     public static final String CONNECTION_MESSAGE_TYPE = "connection.message.type";
 
+    public static final String CONTROLLER = "connection.controller";
+    public static final String CONTROLLER_ACTION_RESULT = "connection.controller.action_result";
+
+    /* ACTION*/
+    public static final String ACTION_CLOSE_CONNECTION = "connection.action.close_connection";
+    public static final String ACTION_TOGGLE_CONTROLLER = "connection.action.toggle_controller";
 
     /* Handler Messages*/
     public static final int SERVER_SOCKET = 6000;
@@ -42,24 +57,27 @@ public class TCPConnection {
     public static final String CONNECTING = "connection.connecting";
 
     /*Connection Issues*/
-    // General
     public static final String ISSUE_TIMEOUT_WHEN_CHECKING = "connection.issue.timeout_when_checking";
     public static final String ISSUE_AlREADY_CONNECTED = "connection.issue.already_connected";
-    //Wifi
     public static final String ISSUE_WIFI_DISABLED = "connection.issue.wifi_disabled";
     public static final String ISSUE_WIFI_TCP_SERVER_TIMEOUT = "connection.issue.wifi_tcp_server_timeout";
     public static final String ISSUE_NO_NETWORK_FOUND = "connection.issue.no_network_found";
     public static final String ISSUE_CONNECTED_TO_WRONG_NETWORK = "connection.issue.connected_to_wrong_network";
     public static final String ISSUE_NO_END_POINT = "connection.issue.no_server_end_point";// No server has been found for the given ip and port
     public static final String ISSUE_STREAM_FAILED = "connection.issue.stream_failed";
+    public static final String ISSUE_CLOSED_VIA_ACTION = "connection.issue.connection_was_closed_via_action";
 
     /*Connection Types*/
     public static final int CLIENT = 9000;
     public static final int SERVER = 9001;
 
+    /*Controller Types*/
+    public static final int CONTROLLER_SOUND_RECORDER = 3000;
+    public static final int CONTROLLER_SOUND_PLAYER = 3001;
+
     private static final String TYPE_WIFI_TCP_STRING = "Wifi TCP";
 
-    private Activity activity;
+    private Context context;
     private int connectionType; // Contain the type of the connection. Wifi TCP, Bluetooth. (In future Server).
     private long lastCommunicationTime, currentCheckStartTime, lastCheckTime, startedTime, currentTime; // Time variables.
     private Check connectionCheck = new Check(); // The object that contain all the details of the connection check.
@@ -74,6 +92,11 @@ public class TCPConnection {
     private TCPCommThread commThread;
     private TCPServerConnectionThread tcpServerConnectionThread;
 
+    /* Wifi Info and Obj*/
+    private WifiManager wifiManager;
+    private ConnectivityManager connManager;
+    private NetworkInfo wifi;
+
     /* Handler */
     private Handler handler;
 
@@ -84,13 +107,16 @@ public class TCPConnection {
     private ConnectionStateChangeListener connectionStateChangeListener; // Connection State Change listener
     private onConnectionLostListener onConnectionLost;
     private WifiStatesListener wifiStatesListener;
+    private ActionEventListener actionEventListener;
 
     private int timeBetweenChecks = 1 * (60* 1000); //  The time that pass between each connection check.
 
     private boolean preformConnectionCheck = true;
 
     /*Constructor*/
-    public TCPConnection(){
+    public TCPConnection(Context context){
+
+        this.context = context;
 
         handler = new Handler() {
             @Override
@@ -110,6 +136,8 @@ public class TCPConnection {
 
                         if (commThread != null) { commThread.interrupt(); }
 
+                        closeConnectionThread();
+
                         commThread = new TCPCommThread( (Socket) msg.obj );
                         commThread.setHandler(this);
                         commThread.start();
@@ -120,7 +148,7 @@ public class TCPConnection {
                             connectionStateChangeListener.onConnected(TCPConnection.this.connectionType, tag);
                             connectionStateChangeListener.onConnectionChangeState(TCPConnection.this.connectionType, connectionStatus);
                         }
-                        else  { Log.d(TAG, "Connection has no connection state change listener"); }
+                        else  { Log.e(TAG, "Connection has no connection state change listener"); }
 
                         break;
 
@@ -130,8 +158,10 @@ public class TCPConnection {
 
                         connectionStatus = DISCONNECTED;
 
+                        closeConnectionThread();
+
                         if ( connectionStateChangeListener != null) { connectionStateChangeListener.onConnectionFailed(ISSUE_WIFI_TCP_SERVER_TIMEOUT); }
-                        else  { Log.d(TAG, "No connection state change listener"); }
+                        else  { Log.e(TAG, "No connection state change listener"); }
 
                         break;
 
@@ -141,8 +171,10 @@ public class TCPConnection {
 
                         connectionStatus = DISCONNECTED;
 
+                        closeConnectionThread();
+
                         if ( connectionStateChangeListener != null) { connectionStateChangeListener.onConnectionFailed(ISSUE_NO_END_POINT); }
-                        else  { Log.d(TAG, "No connection state change listener"); }
+                        else  { Log.e(TAG, "No connection state change listener"); }
 
 
                         break;
@@ -190,6 +222,13 @@ public class TCPConnection {
    /*Start the connection object.*/
     public boolean start(int serverPort){
 
+        Log.d(TAG, "start, Server!");
+
+        registerActionReceiver();
+
+        if (connectionType == CLIENT)
+            tcpServerConnectionThread.close();
+
         this.connectionType = SERVER;
 
         this.serverPort = serverPort;
@@ -204,6 +243,12 @@ public class TCPConnection {
     }
 
     public boolean start(String ip, int serverPort){
+        Log.d(TAG, "start, Client!");
+
+        registerActionReceiver();
+
+        if (connectionType == SERVER)
+            tcpServerConnectionThread.close();
 
         this.connectionType = CLIENT;
 
@@ -211,7 +256,7 @@ public class TCPConnection {
         serverIp = ip;
 
         // Start the tcp server thread if there isn't any other thread alive.
-        if (connectionStatus.equals(DISCONNECTED))
+        if (!isConnected())
         {
             startConnectionThread();
         }
@@ -221,6 +266,8 @@ public class TCPConnection {
     }
 
     /* Stop running thread and set ConnectionStatus to Disconnected and call the start() method. */
+    /**
+     * @deprecated  this method is detracted till Library will be more stable */
     public void restart(){
 
         close();
@@ -243,16 +290,25 @@ public class TCPConnection {
         else return null;
     }
 
+    /** Return true if the state of the connection is CONNECTED any other state will return false(i.e DISCONNECTED, SCANNING, CONNECTING etc.*/
     public synchronized boolean isConnected(){
         return connectionStatus.equals(CONNECTED);
     }
 
+    /** Close the connection and all his belonging, Stop communication, record, playing sound etc...*/
     public void close(){
         Log.i(TAG, "Closing Connection, Connection Type: " + connectionType );
 
+        closeConnectionThread();
+
         stopCommunicationThread();
+
+        unregisterWifiReceiver();
+
+        unregisterActionReceiver();
     }
 
+    /** @deprecated this method is detracted till Library will be more stable */
     public void Terminate(){
         close();
 
@@ -260,15 +316,32 @@ public class TCPConnection {
             tcpServerConnectionThread.close();
     }
 
+    /** Close the connection when an issue occur and notify the onConnectionLost listener so the disconnection could be handled.*/
     private void close(String issue){
         Log.i(TAG, "Closing Connection, Connection Type: " + connectionType );
 
-        if (onConnectionLost!= null)
-            onConnectionLost.onConnectionLost(connectionType, issue );
+        String prevStatus = connectionStatus;
 
-        stopCommunicationThread();
+        close();
+
+        // Only if was connected before close with issue notify user.
+        if (prevStatus == CONNECTED)
+        {
+            if (onConnectionLost!= null)
+                onConnectionLost.onConnectionLost(connectionType, issue );
+            else
+                Log.e(TAG, "No connection Lost Listener");
+        }
+        else if (prevStatus == CONNECTING)
+        {
+            if (connectionStateChangeListener != null)
+                connectionStateChangeListener.onConnectionFailed(issue);
+            else
+                Log.e(TAG, "No connection change state listener");
+        }
     }
-    
+
+    /** Start the connection Thread, Handle Server or Client options.*/
     private void startConnectionThread(){
 
         connectionStatus = CONNECTING;
@@ -279,7 +352,7 @@ public class TCPConnection {
         switch (connectionType)
         {
             case SERVER:
-                if (serverSocket != null)
+                if (serverSocket != null && !tcpServerConnectionThread.isClosed())
                     tcpServerConnectionThread.startAccept(true);
                 else
                 {
@@ -300,6 +373,12 @@ public class TCPConnection {
 
     }
 
+    private void closeConnectionThread(){
+        if (tcpServerConnectionThread != null)
+            tcpServerConnectionThread.close();
+    }
+
+    /** Stop the communication thread*/
     private void stopCommunicationThread(){
         Log.d(TAG, "stopCommunicationThread");
         connectionStatus = DISCONNECTED;
@@ -311,6 +390,36 @@ public class TCPConnection {
     }
 
     /* Getters and Setters */
+
+    public String getCurrentWifiIp(){
+        connManager = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
+        wifi = connManager.getNetworkInfo(ConnectivityManager.TYPE_WIFI);
+        wifiManager = (WifiManager) context.getSystemService(Activity.WIFI_SERVICE);
+
+        if (wifi.isConnected())
+        {
+            int ip =wifiManager.getConnectionInfo().getIpAddress();
+
+            String ipString = String.format(
+                    "%d.%d.%d.%d",
+                    (ip & 0xff),
+                    (ip >> 8 & 0xff),
+                    (ip >> 16 & 0xff),
+                    (ip >> 24 & 0xff));
+
+            return ipString;
+        }
+        return null;
+    }
+
+    public boolean isConnectedToWifiNetwork(){
+
+        connManager = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
+        wifi = connManager.getNetworkInfo(ConnectivityManager.TYPE_WIFI);
+        wifiManager = (WifiManager) context.getSystemService(Activity.WIFI_SERVICE);
+
+        return wifi.isConnected();
+    }
 
     public synchronized String getConnectionStatus() {
         return connectionStatus;
@@ -325,7 +434,12 @@ public class TCPConnection {
     }
 
     public void setWifiStatesListener(WifiStatesListener wifiStatesListener) {
+        registerWifiReceiver();
         this.wifiStatesListener = wifiStatesListener;
+    }
+
+    public void setActionEventListener(ActionEventListener actionEventListener) {
+        this.actionEventListener = actionEventListener;
     }
 
     public void setTimeBetweenChecks(int timeBetweenChecks) {
@@ -360,7 +474,120 @@ public class TCPConnection {
         return preformConnectionCheck;
     }
 
-    private BroadcastReceiver wifiS
+    /* Broadcast Receiver - Wifi State Receiver - Action Receiver*/
+    private void registerActionReceiver(){
+
+        IntentFilter actionFilter = new IntentFilter(ACTION_CLOSE_CONNECTION);
+        actionFilter.addAction(ACTION_TOGGLE_CONTROLLER);
+
+        context.registerReceiver(actionReceiver, actionFilter);
+    }
+
+    private void unregisterActionReceiver(){
+        try {
+            context.unregisterReceiver(actionReceiver);
+        } catch (IllegalArgumentException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private BroadcastReceiver actionReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+
+            Log.d(TAG, "ActionReceiver, Action: " + intent.getAction());
+
+            if (intent.getAction().equals(ACTION_CLOSE_CONNECTION))
+                close();
+            else if (intent.getAction().equals(ACTION_TOGGLE_CONTROLLER))
+            {
+                if (intent.getExtras() != null)
+                {
+                    if (isConnected())
+                        switch (intent.getExtras().getInt(CONTROLLER))
+                        {
+                            case CONTROLLER_SOUND_RECORDER:
+                                intent.putExtra(CONTROLLER_ACTION_RESULT, getRecordController().toggle());
+                                break;
+
+                            case CONTROLLER_SOUND_PLAYER:
+                                intent.putExtra(CONTROLLER_ACTION_RESULT, getAudioController().toggle());
+                                break;
+                        }
+                }
+            }
+
+            if (actionEventListener != null)
+                actionEventListener.onActionEvent(intent);
+            else
+                Log.e(TAG, "No Action Event Listener");
+
+        }
+    };
+
+    private void registerWifiReceiver(){
+
+        IntentFilter wifiFilter = new IntentFilter(WifiManager.NETWORK_STATE_CHANGED_ACTION);
+        wifiFilter.addAction(WifiManager.WIFI_STATE_CHANGED_ACTION);
+        context.registerReceiver(wifiReceiver, wifiFilter);
+    }
+
+    private void unregisterWifiReceiver(){
+        try {
+            context.unregisterReceiver(wifiReceiver);
+        } catch (IllegalArgumentException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private BroadcastReceiver wifiReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+
+            if (intent.getAction().equals(WifiManager.WIFI_STATE_CHANGED_ACTION)){
+                if (intent.getIntExtra(WifiManager.EXTRA_WIFI_STATE, 0) == WifiManager.WIFI_STATE_DISABLED)
+                {
+                    if (wifiStatesListener != null)
+                        wifiStatesListener.onDisabled();
+                    else
+                        Log.e(TAG, "no wifi states change listener");
+
+                    close(ISSUE_WIFI_DISABLED);
+                }
+                else if (intent.getIntExtra(WifiManager.EXTRA_WIFI_STATE, 0) == WifiManager.WIFI_STATE_ENABLED)
+                {
+                    if (wifiStatesListener != null)
+                            wifiStatesListener.onEnabled();
+                    else
+                        Log.e(TAG, "no wifi states change listener");
+                }
+            }
+            else if (intent.getAction().equals(WifiManager.NETWORK_STATE_CHANGED_ACTION))
+            {
+                NetworkInfo netInfo = intent.getParcelableExtra(WifiManager.EXTRA_NETWORK_INFO);
+
+                if (netInfo.isConnected())
+                {
+                    WifiInfo wifiInfo = intent.getParcelableExtra(WifiManager.EXTRA_WIFI_INFO);
+
+                    if (wifiStatesListener != null)
+                        wifiStatesListener.onConnected(wifiInfo.getSSID());
+                    else
+                        Log.e(TAG, "no wifi states change listener");
+                }
+                else
+                {
+                    WifiInfo wifiInfo = intent.getParcelableExtra(WifiManager.EXTRA_WIFI_INFO);
+
+                    if (wifiStatesListener != null)
+                        wifiStatesListener.onDisconnected();
+                    else
+                        Log.e(TAG, "no wifi states change listener");
+                }
+            }
+
+        }
+    };
 }
 
 /*    public void write(Msg msg){
