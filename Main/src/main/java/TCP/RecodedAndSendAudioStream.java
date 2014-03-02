@@ -7,9 +7,6 @@ import android.util.Log;
 
 import org.apache.commons.io.IOUtils;
 
-import java.io.BufferedOutputStream;
-import java.io.DataOutputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.OutputStream;
 
@@ -30,8 +27,10 @@ public class RecodedAndSendAudioStream extends Thread {
 
     // Record Data
     private  AudioRecord audioRecord;
-    int bufferSize;
+    private int bufferSize;
+    private long lastBytesReceivedTime = -1;
     private byte[] buffer;
+
 
     private boolean isRecording = false, close = false;
 
@@ -51,10 +50,15 @@ public class RecodedAndSendAudioStream extends Thread {
         while(!Thread.currentThread().isInterrupted())
         {
             if (isRecording) {
+
+//                Log.d(TAG, "Recording");
                 audioRecord.read(buffer, 0, bufferSize);
 
                 try {
+//                    Log.d(TAG, "Write");
                     IOUtils.write(buffer, output);
+                    output.flush();
+                    lastBytesReceivedTime = System.currentTimeMillis();
                 } catch (IOException e) {
                     if (onRecordFailed != null)
                         onRecordFailed.onFailed();
@@ -63,6 +67,19 @@ public class RecodedAndSendAudioStream extends Thread {
 
                     e.printStackTrace();
                 }
+
+/*Check for timeout in recording if other side stop            Log.d(TAG, "IsRecording!");
+                if ( lastBytesReceivedTime > -1 && System.currentTimeMillis() - lastBytesReceivedTime > 2000)
+                {
+                    Log.d(TAG, "Record Timeout!");
+
+                    isRecording = false;
+
+                    // Listener for play/pause button
+                    Intent playStopIntent =new Intent(TCPConnection.ACTION_TOGGLE_CONTROLLER);
+                    // Extra which controller to use. Server use sound player client us recorder
+                    playStopIntent.putExtra(TCPConnection.CONTROLLER, TCPConnection.CONTROLLER_SOUND_RECORDER );
+                }*/
             }
 
             if (close){
@@ -71,6 +88,7 @@ public class RecodedAndSendAudioStream extends Thread {
                     isRecording= false;
                     audioRecord.stop();
                     audioRecord.release();
+                    audioRecord = null;
                 }
             }
         }
@@ -99,11 +117,16 @@ public class RecodedAndSendAudioStream extends Thread {
     }
 
     public void startRecord(){
+
+        if (audioRecord == null)
+            prepareRecording();
+
         if (!isRecording)
         {
             audioRecord.startRecording();
-            isRecording = !isRecording;
         }
+
+        isRecording = true;
     }
 
     public  void close(){

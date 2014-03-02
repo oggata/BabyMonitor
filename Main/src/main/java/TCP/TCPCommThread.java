@@ -1,38 +1,17 @@
 package TCP;
 
 import android.content.Context;
-import android.content.Intent;
-import android.media.AudioFormat;
-import android.media.AudioManager;
-import android.media.AudioTrack;
-import android.media.MediaPlayer;
 import android.os.Handler;
 import android.os.Message;
 import android.util.Log;
-import android.widget.RadioGroup;
-
-import org.apache.commons.io.IOUtils;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
-import java.io.PrintWriter;
-import java.io.UnsupportedEncodingException;
-import java.net.ConnectException;
-import java.net.InetAddress;
-import java.net.ServerSocket;
 import java.net.Socket;
-import java.net.UnknownHostException;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.security.InvalidParameterException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -40,6 +19,8 @@ import java.util.List;
  * Created by itzik on 11/8/13.
  */
 public class TCPCommThread extends Thread {
+
+    // TODO Add another TCP connection for data transfer like battery power and preforming check.
 
     private final String TAG = TCPCommThread.class.getSimpleName();
 
@@ -60,14 +41,20 @@ public class TCPCommThread extends Thread {
 
     private AudioStreamForcedStoppedListener audioStreamForcedStoppedListener;
 
+    // Flags for the threads.
     private boolean isStreamOn = false,
                     playLiveAudio = false, readCommand = false,
                     recordLiveAudio = false,
-                    close = false;
+                    close = false, checkConnection = false;
 
+    // List of messages that are pending to be sent
     private List<String> messages = new ArrayList<String>();
 
+    // For the message reading
     private String line, command;
+
+    // keep the data of the last check or communication with the other side of the connection.
+    private long lastCommTime;
 
     public TCPCommThread(Socket socket) {
 
@@ -142,62 +129,12 @@ public class TCPCommThread extends Thread {
                 readCommand = false;
             }
 
-            if (playLiveAudio)
-            {
-                if (isStreamsInitialized())
-                {
-                    if (loadAndPlayStream != null && !loadAndPlayStream.isPlaying())
-                    {
-                        Log.i(TAG, "Playing Live Audio");
-
-                        // Letting the main view know the stram has been stopped
-                        loadAndPlayStream.setAudioStreamForcedStoppedListener(new AudioStreamForcedStoppedListener() {
-                            @Override
-                            public void stopped() {
-                                reportToHandler(TCPConnection.ERROR_AUDIO_STREAM_FAIL);
-                            }
-                        });
-
-                        if (!loadAndPlayStream.isAlive())
-                            loadAndPlayStream.start();
-
-                        loadAndPlayStream.startAudio();
-                    }
-
-                    playLiveAudio = false;
-                }
-                else
-                    isStreamOn(true);
-            }
-
-            if (recordLiveAudio){
-                if (isStreamsInitialized())
-                {
-                    if (recodedAndSendAudioStream != null && !recodedAndSendAudioStream.isRecording())
-                    {
-                        Log.i(TAG, "Recording Live Audio");
-
-                        recodedAndSendAudioStream.setOnRecordFailed(new RecodedAndSendAudioStream.OnRecordFailed() {
-                            @Override
-                            public void onFailed() {
-                                reportToHandler(TCPConnection.ERROR_RECORD_STREAM_STOPPED);
-                            }
-                        });
-                        recodedAndSendAudioStream.start();
-                        recodedAndSendAudioStream.startRecord();
-                    }
-
-                    recordLiveAudio = false;
-                }
-                else
-                    isStreamOn(true);
-            }
-
             //There messages to send
             if (messages.size() > 0){
                 if (isStreamsInitialized())
                 {
-                    Log.i(TAG, "Sending Messages");
+                    Log.i(TAG, "Sending Messages, Amount: " + messages.size());
+
                     List<String> messagesToSend = messages;
 
                     messages = new ArrayList<String>();
@@ -206,7 +143,11 @@ public class TCPCommThread extends Thread {
                     {
                         try {
                             mmOutStream.write(messagesToSend.get(i).getBytes());
-                        } catch (IOException e) {
+
+                            // Set the last time the devices communicate successfully.
+                            lastCommTime = System.currentTimeMillis();
+                        } catch (IOException e)
+                        {
                             e.printStackTrace();
                             reportToHandler(TCPConnection.ERROR_MSG_NOT_SENT);
 
@@ -217,6 +158,26 @@ public class TCPCommThread extends Thread {
                 else
                     isStreamOn(true);
             }
+
+            // If stream is open and not playing and not recording preform a check of the connection
+            if ( isStreamsInitialized() && checkConnection
+                    && (
+                    (recodedAndSendAudioStream == null || !recodedAndSendAudioStream.isRecording())
+                            &&
+                            (loadAndPlayStream == null || !loadAndPlayStream.isPlaying())
+                        )
+                    && ( System.currentTimeMillis() - lastCommTime > TCPConnection.TIME_BETWEEN_CHECKS ))
+            {
+                write(" ");
+
+                if (recodedAndSendAudioStream != null && recodedAndSendAudioStream.isRecording())
+                    Log.d(TAG, "check while recording ");
+                // Set the last check time
+                lastCommTime = System.currentTimeMillis();
+            }
+
+
+        /*End of while.*/
         }
     }
 
@@ -244,22 +205,37 @@ public class TCPCommThread extends Thread {
     }
 
     /** Start Playing live audio*/
-    private void playLiveAudio(){
+    private boolean playLiveAudio(){
 
-        Log.d(TAG, "playLiveAudio");
+        Log.i(TAG, "Playing Live Audio");
 
-        if (loadAndPlayStream == null)
-            loadAndPlayStream = new LoadAndPlayAudioStream(mmInStream);
-
-        if(!loadAndPlayStream.isPlaying())
+        if (isStreamsInitialized())
         {
-            playLiveAudio = true;
+            if (loadAndPlayStream == null)
+                loadAndPlayStream = new LoadAndPlayAudioStream(mmInStream);
+
+            if(!loadAndPlayStream.isPlaying())
+            {
+                // Letting the main view know the stram has been stopped
+                loadAndPlayStream.setAudioStreamForcedStoppedListener(new AudioStreamForcedStoppedListener() {
+                    @Override
+                    public void stopped() {
+                        reportToHandler(TCPConnection.ERROR_AUDIO_STREAM_FAIL);
+                    }
+                });
+
+                if (!loadAndPlayStream.isAlive())
+                    loadAndPlayStream.start();
+
+                loadAndPlayStream.startAudio();
+
+                return true;            }
+            else
+                Log.i(TAG, "Already Playing");
         }
-        else
-            Log.d(TAG, "Already Playing");
+        else Log.d(TAG, "Stream not initialized");
 
-        // TODO Method is thread safe can be moved outside of thread
-
+        return false;
     }
 
     /** Stop Playing live audio*/
@@ -271,18 +247,38 @@ public class TCPCommThread extends Thread {
     }
 
     /** Start Recording live audio*/
-    private void recordLiveAudio(){
+    private boolean recordLiveAudio(){
         Log.d(TAG, "Record live audio");
 
-        if (recodedAndSendAudioStream == null)
-            recodedAndSendAudioStream = new RecodedAndSendAudioStream(mmOutStream);
-
-        if (!recodedAndSendAudioStream.isRecording())
+        if (isStreamsInitialized())
         {
-            recordLiveAudio = true;
+            if (recodedAndSendAudioStream == null)
+                recodedAndSendAudioStream = new RecodedAndSendAudioStream(mmOutStream);
+
+            if (!recodedAndSendAudioStream.isRecording())
+            {
+                Log.i(TAG, "Recording Live Audio");
+
+                recodedAndSendAudioStream.setOnRecordFailed(new RecodedAndSendAudioStream.OnRecordFailed() {
+                    @Override
+                    public void onFailed() {
+                        reportToHandler(TCPConnection.ERROR_RECORD_STREAM_STOPPED);
+                    }
+                });
+
+                if (!recodedAndSendAudioStream.isAlive())
+                    recodedAndSendAudioStream.start();
+
+                recodedAndSendAudioStream.startRecord();
+
+                return true;
+            }
         }
-        else
-            Log.d(TAG, "Already Recording");
+        else Log.d(TAG, "Stream not initialized");
+
+        Log.d(TAG, "Already Recording");
+
+        return false;
     }
 
     private void stopRecord(){
@@ -357,6 +353,10 @@ public class TCPCommThread extends Thread {
         return recordController;
     }
 
+    public void setCheckConnection(boolean checkConnection) {
+        this.checkConnection = checkConnection;
+    }
+
     public void setHandler(Handler handler) {
         this.handler = handler;
     }
@@ -371,7 +371,7 @@ public class TCPCommThread extends Thread {
     }
 
     public interface AudioController{
-        public void play();
+        public boolean  play();
         public void stop();
         /** Toggle the audio stream ON to OFF or OFF to ON
          * @return  <b>false-</b> if stream had been stopped <b>true-</b> if stream had been started*/
@@ -380,7 +380,7 @@ public class TCPCommThread extends Thread {
     }
 
     public interface RecordController{
-        public void record();
+        public boolean record();
         public void stop();
         /** Toggle the record stream ON to OFF or OFF to ON
          * @return  <b>false-</b> if stream had been stopped <b>true-</b> if stream had been started*/
@@ -391,8 +391,8 @@ public class TCPCommThread extends Thread {
    // An implantation of the RecordController Interface for a better controlling in the stream.
     private RecordController recordController = new RecordController() {
         @Override
-        public void record() {
-            recordLiveAudio();
+        public boolean record() {
+            return recordLiveAudio();
         }
 
         @Override
@@ -424,9 +424,8 @@ public class TCPCommThread extends Thread {
     // An implantation of the AudioController Interface for a better controlling in the stream.
     private AudioController audioController = new AudioController() {
         @Override
-        public void play() {
-            Log.d(TAG, "Play in Controller");
-            playLiveAudio();
+        public boolean play() {
+            return playLiveAudio();
         }
 
         @Override

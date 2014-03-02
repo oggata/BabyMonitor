@@ -7,25 +7,29 @@ import org.apache.commons.io.IOUtils;
 import java.io.IOException;
 import java.io.InputStream;
 
-import TCP.AudioStreamPlayer;
-import TCP.TCPCommThread;
-
 /** Stream audio from the server and play it using The AudioStreamPlayer Obj*/
 class LoadAndPlayAudioStream extends Thread {
 
+    // TODO check low sample rate, bit encoding size(8BIT, 16BIT) for bad internet
+    // TODO analyz sound for static noise
+
     private final String TAG = LoadAndPlayAudioStream.class.getSimpleName();
 
-    private final int MAX_BYTE_IN_BUFFER_BEFORE_SKIP = 1000 * 100;
-    private final int MIN_BYTE_NUMBER_TO_KEEP_IN_BUFFER = 1000 * 50;
+    private final int MAX_BYTE_IN_BUFFER_BEFORE_SKIP = 1000 * 50;
+    private final int MIN_BYTE_NUMBER_TO_KEEP_IN_BUFFER = 1000 * 30;
     private final int BYTE_TO_BUFFER = 15000;
 
+    // The object that play the sound
     private AudioStreamPlayer player;
-    private int bufferCount = 0, sampleRate;
-    private long fileSize;
+
+    // Flag state that the thread is playing sound
     private boolean isPlaying = false;
 
+    // The input stream that get bytes
     private InputStream inStream;
 
+    private int bufferCount = 0, sampleRate;
+    private long fileSize, lastBytesReceivedTime = -1;
     byte[] bytesFromStream = new byte[BYTE_TO_BUFFER];
 
     private TCPCommThread.AudioStreamForcedStoppedListener audioStreamForcedStoppedListener;
@@ -50,9 +54,9 @@ class LoadAndPlayAudioStream extends Thread {
                 try {
                     if(inStream.available() > 0)
                     {
-                        Log.d(TAG, "Available Bytes: " + inStream.available());
+//                        Log.d(TAG, "Available Bytes: " + inStream.available());
 
-                        if (player == null && inStream.available() > MAX_BYTE_IN_BUFFER_BEFORE_SKIP)
+                        if ( (player == null || !player.isPlaying()) && inStream.available() > MAX_BYTE_IN_BUFFER_BEFORE_SKIP)
                         {
                             Log.d(TAG, "Buffer was to full bytes skipped, Number skipped: "
                                     + (inStream.available() - MIN_BYTE_NUMBER_TO_KEEP_IN_BUFFER ));
@@ -60,10 +64,13 @@ class LoadAndPlayAudioStream extends Thread {
                             inStream.skip(inStream.available() - MIN_BYTE_NUMBER_TO_KEEP_IN_BUFFER);
                         }
 
-//                            Log.d(TAG, "Available Bytes: " + mmInStream.available());
-
+                        // Read the buffer
                         IOUtils.readFully(inStream, bytesFromStream);
 
+                        // Set the time of the last communication.
+                        lastBytesReceivedTime = System.currentTimeMillis();
+
+                        // count the received bytes.
                         bufferCount += bytesFromStream.length;
 
                         // Creating the player
@@ -101,8 +108,23 @@ class LoadAndPlayAudioStream extends Thread {
                     stopAudio();
                     e.printStackTrace();
                 }
+
+/*Check for timeout in playing if other side stop                Log.d(TAG, "IsPlaying!");
+                if ( lastBytesReceivedTime != -1 && System.currentTimeMillis() - lastBytesReceivedTime > 2000)
+                {
+                    Log.d(TAG, "Playing Timeout!");
+                    isPlaying = false;
+
+                    // Listener for play/pause button
+                    Intent playStopIntent =new Intent(TCPConnection.ACTION_TOGGLE_CONTROLLER);
+                    // Extra which controller to use. Server use sound player client us recorder
+                    playStopIntent.putExtra(TCPConnection.CONTROLLER, TCPConnection.CONTROLLER_SOUND_PLAYER );
+                }*/
+
             }
+            /* End Of While*/
         }
+        /* End Of Run*/
     }
 
     public void startAudio(){
@@ -117,6 +139,8 @@ class LoadAndPlayAudioStream extends Thread {
 
         if (player != null)
             player.stop();
+
+        player = null;
 
         isPlaying = false;
 

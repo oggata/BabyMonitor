@@ -15,8 +15,7 @@ public class AudioStreamPlayer implements Runnable{
     public static final int SAMPLE_44100 = 44100;
     public static final int SAMPLE_10000 = 10000;
 
-    private static final int MIN_BUFFER_FOR_PLAY = 1000 * 100;
-//    private static final int MIN_BUFFER_FOR_PLAY = 3;
+    private static final int MIN_BUFFER_FOR_PLAY = 1000 * 50;
 
     private byte[] buffer;
     private AudioTrack track;
@@ -42,7 +41,7 @@ public class AudioStreamPlayer implements Runnable{
 
         track = new AudioTrack(AudioManager.STREAM_MUSIC, SAMPLE_44100,
                 AudioFormat.CHANNEL_OUT_STEREO, AudioFormat.ENCODING_PCM_16BIT,
-                10000, AudioTrack.MODE_STREAM);
+                MIN_BUFFER_FOR_PLAY / 2, AudioTrack.MODE_STREAM);
 
         track.setStereoVolume(1,1);
 

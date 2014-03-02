@@ -2,6 +2,8 @@ package braunster.babymonitor;
 
 import android.app.Application;
 
+import com.bugsense.trace.BugSenseHandler;
+
 import TCP.TCPConnection;
 
 /**
@@ -9,15 +11,30 @@ import TCP.TCPConnection;
  */
 public class BabyMonitorAppObj extends Application {
 
-    private TCPConnection connection;
+    private TCPConnection streamConnection, dataConnection;
+
+    private final static String APIKEY = "7d589131";
 
     @Override
     public void onCreate() {
         super.onCreate();
-        connection = new TCPConnection(getApplicationContext());
+
+        BugSenseHandler.initAndStartSession(getApplicationContext(), APIKEY);
+
+        streamConnection = new TCPConnection(getApplicationContext());
+        dataConnection = new TCPConnection(getApplicationContext());
     }
 
-    public TCPConnection getConnection() {
-        return connection;
+    public TCPConnection getStreamConnection() {
+        return streamConnection;
+    }
+
+    public TCPConnection getDataConnection() {
+        return dataConnection;
+    }
+
+    public void closeConnections(){
+        streamConnection.close();
+        dataConnection.close();
     }
 }

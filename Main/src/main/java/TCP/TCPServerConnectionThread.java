@@ -3,11 +3,13 @@ package TCP;
 import android.os.Handler;
 import android.os.Message;
 import android.util.Log;
+
 import java.io.IOException;
 import java.net.ConnectException;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketException;
 import java.net.UnknownHostException;
 
 /**
@@ -17,7 +19,7 @@ public class TCPServerConnectionThread extends Thread{
 
     final String TAG = TCPServerConnectionThread.class.getSimpleName();
 
-    private static final int SERVER_SO_TIMEOUT = 100;
+    private static final int SERVER_SO_TIMEOUT = 10 * 1000;
     private ServerSocket serverSocket;
     private Socket socket = null;
 
@@ -61,25 +63,6 @@ public class TCPServerConnectionThread extends Thread{
             if (connectToServer)
                 connectToServer();
         }
-
-        try {
-            if (serverSocket != null)
-                 serverSocket.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-//        try {
-//            if (serverSocket != null)
-//            {
-//                serverSocket.close();
-//
-//                Log.i(TAG, " ServerSocket is now closed");
-//            }
-//        } catch (IOException e) {
-//            e.printStackTrace();
-//        }
-
-
     }
 
     public synchronized void startAccept(boolean accept){
@@ -88,6 +71,19 @@ public class TCPServerConnectionThread extends Thread{
 
     public void close(){
         close = true;
+
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    Log.i(TAG, "Closing the server");
+                    if (serverSocket != null)
+                        serverSocket.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }).start();
     }
 
     public boolean isClosed(){
@@ -98,13 +94,24 @@ public class TCPServerConnectionThread extends Thread{
         this.handler = handler;
     }
 
+    public ServerSocket getServerSocket() {
+        return serverSocket;
+    }
+
+    public boolean isAccepting() {
+        return accept;
+    }
+
     // Host Connection
     private void accept(){
+
         if (serverSocket != null)
         {
             try {
 
                 Log.i(TAG, "Waiting for client...");
+
+                serverSocket.setSoTimeout(SERVER_SO_TIMEOUT);
 
                 socket = serverSocket.accept();
 
@@ -112,16 +119,30 @@ public class TCPServerConnectionThread extends Thread{
                 {
                     Log.i(TAG, "Connected.");
 
-                    socket.setTcpNoDelay(true);
+                    // TODO check with and without
+                    socket.setTcpNoDelay(false);
 
-//                    socket.setSoTimeout(SERVER_SO_TIMEOUT);
+                    if (!close)
+                    {
+                        successMsg();
 
-                    successMsg();
+                        serverSocketMsg();
+                    }
+                    else
+                    {
+                        Log.i(TAG, "Server was closed while accepting");
 
-                    serverSocketMsg();
+                        try {
+                            socket.close();
+                        }
+                        catch (IOException e){}
+                    }
+
                 }
 
-            } catch (IOException e) {
+            }
+            catch (SocketException e){}
+            catch (IOException e) {
 
                 failMsg(TCPConnection.ERROR_ACCEPTATION_TIMEOUT);
 
@@ -160,7 +181,6 @@ public class TCPServerConnectionThread extends Thread{
     }
 
     private void successMsg(){
-        Log.i(TAG, "Connected.");
         msg = new Message();
         msg.what = TCPConnection.SUCCESS_CONNECTION;
         msg.obj = socket;
@@ -170,7 +190,6 @@ public class TCPServerConnectionThread extends Thread{
     }
 
     private void serverSocketMsg(){
-        Log.i(TAG, "Connected.");
         msg = new Message();
         msg.what = TCPConnection.SERVER_SOCKET;
         msg.obj = serverSocket;

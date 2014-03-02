@@ -7,7 +7,6 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
-import android.net.wifi.SupplicantState;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.os.Handler;
@@ -24,6 +23,9 @@ import java.sql.Connection;
 public class TCPConnection {
     //TODO work on connection check
     private final String TAG = Connection.class.getSimpleName();
+
+    // The time passes between each check inside the communication thread.
+    public static int TIME_BETWEEN_CHECKS = 1000 * 5;
 
     /*Key's*/
     public static final String CONNECTION_STATUS = "connection.status";
@@ -109,9 +111,8 @@ public class TCPConnection {
     private WifiStatesListener wifiStatesListener;
     private ActionEventListener actionEventListener;
 
-    private int timeBetweenChecks = 1 * (60* 1000); //  The time that pass between each connection check.
-
-    private boolean preformConnectionCheck = true;
+    // Flag that passes on to the communication thread and tell him to preform check or not.
+    private boolean preformConnectionCheck = false;
 
     /*Constructor*/
     public TCPConnection(Context context){
@@ -140,6 +141,7 @@ public class TCPConnection {
 
                         commThread = new TCPCommThread( (Socket) msg.obj );
                         commThread.setHandler(this);
+                        commThread.setCheckConnection(preformConnectionCheck);
                         commThread.start();
 
                         connectionStatus = CONNECTED;
@@ -181,7 +183,7 @@ public class TCPConnection {
 
                     case ERROR_MSG_NOT_SENT:
 
-                        Log.e(TAG, "TCP Error opening input and output stream");
+                        Log.e(TAG, "TCP Error message was not sent");
                         // TODO Find best solution for this problem
 
                         close(ISSUE_STREAM_FAILED);
@@ -189,8 +191,8 @@ public class TCPConnection {
                         break;
 
                     case ERROR_CANT_OPEN_IN_OUT_STREAM:
+                        Log.e(TAG, "TCP Error opening input and output stream");
 
-                        Log.e(TAG, "TCP Error message was not sent");
                         // TODO Find best solution for this problem
 
                         close(ISSUE_STREAM_FAILED);
@@ -222,42 +224,43 @@ public class TCPConnection {
    /*Start the connection object.*/
     public boolean start(int serverPort){
 
-        Log.d(TAG, "start, Server!");
-
-        registerActionReceiver();
-
-        if (connectionType == CLIENT)
-            tcpServerConnectionThread.close();
-
-        this.connectionType = SERVER;
-
-        this.serverPort = serverPort;
+        Log.i(TAG, "start, Server!. Current Connection Status = " + connectionStatus);
 
         // Start the tcp server thread if there isn't any other thread alive.
         if (connectionStatus.equals(DISCONNECTED))
         {
+            registerActionReceiver();
+
+            if (connectionType == CLIENT)
+                tcpServerConnectionThread.close();
+
+            this.connectionType = SERVER;
+
+            this.serverPort = serverPort;
+
             startConnectionThread();
+
+            return true;
         }
 
         return false;
     }
 
     public boolean start(String ip, int serverPort){
-        Log.d(TAG, "start, Client!");
+        Log.i(TAG, "start, Client!. Current Connection Status = " + connectionStatus);
 
-        registerActionReceiver();
-
-        if (connectionType == SERVER)
-            tcpServerConnectionThread.close();
-
-        this.connectionType = CLIENT;
-
-        this.serverPort = serverPort;
-        serverIp = ip;
-
-        // Start the tcp server thread if there isn't any other thread alive.
-        if (!isConnected())
+        if (connectionStatus.equals(DISCONNECTED))
         {
+            registerActionReceiver();
+
+            if (connectionType == SERVER)
+                tcpServerConnectionThread.close();
+
+            this.connectionType = CLIENT;
+
+            this.serverPort = serverPort;
+            serverIp = ip;
+
             startConnectionThread();
         }
 
@@ -318,7 +321,6 @@ public class TCPConnection {
 
     /** Close the connection when an issue occur and notify the onConnectionLost listener so the disconnection could be handled.*/
     private void close(String issue){
-        Log.i(TAG, "Closing Connection, Connection Type: " + connectionType );
 
         String prevStatus = connectionStatus;
 
@@ -344,6 +346,8 @@ public class TCPConnection {
     /** Start the connection Thread, Handle Server or Client options.*/
     private void startConnectionThread(){
 
+        Log.i(TAG, "Start Connection Thread");
+
         connectionStatus = CONNECTING;
 
         if ( connectionStateChangeListener != null) { connectionStateChangeListener.onConnectionChangeState(connectionType, connectionStatus); }
@@ -352,7 +356,7 @@ public class TCPConnection {
         switch (connectionType)
         {
             case SERVER:
-                if (serverSocket != null && !tcpServerConnectionThread.isClosed())
+                if (serverSocket != null && !tcpServerConnectionThread.isClosed() &&!tcpServerConnectionThread.isAccepting())
                     tcpServerConnectionThread.startAccept(true);
                 else
                 {
@@ -443,7 +447,7 @@ public class TCPConnection {
     }
 
     public void setTimeBetweenChecks(int timeBetweenChecks) {
-        this.timeBetweenChecks = timeBetweenChecks;
+        this.TIME_BETWEEN_CHECKS = timeBetweenChecks;
     }
 
     public long getLastCommunicationTime() {
@@ -487,7 +491,7 @@ public class TCPConnection {
         try {
             context.unregisterReceiver(actionReceiver);
         } catch (IllegalArgumentException e) {
-            e.printStackTrace();
+//            e.printStackTrace();
         }
     }
 
@@ -536,7 +540,7 @@ public class TCPConnection {
         try {
             context.unregisterReceiver(wifiReceiver);
         } catch (IllegalArgumentException e) {
-            e.printStackTrace();
+//            e.printStackTrace();
         }
     }
 
