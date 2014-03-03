@@ -10,6 +10,8 @@ import android.util.Log;
  */
 public class AudioStreamPlayer implements Runnable{
 
+    // TODO maybe change the while statement to isInterupted not to always true
+
     private final String TAG = AudioStreamPlayer.class.getSimpleName();
 
     public static final int SAMPLE_44100 = 44100;
@@ -75,6 +77,12 @@ public class AudioStreamPlayer implements Runnable{
     private void play(){
         if (!isPlaying)
         {
+            if (track == null)
+            {
+                Log.e(TAG, "Play pressed and track is null");
+                return;
+            }
+
             Log.i(TAG, "Play!");
 
             track.play();

@@ -8,7 +8,10 @@ import android.app.Fragment;
 import android.app.Notification;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.graphics.drawable.TransitionDrawable;
 import android.media.RingtoneManager;
 import android.net.Uri;
@@ -30,10 +33,20 @@ import android.widget.RemoteViews;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.ExecutionException;
+
 import TCP.ActionEventListener;
 import TCP.ConnectionStateChangeListener;
+import TCP.CreateXmlAsyncTask;
+import TCP.IncomingDataListener;
+import TCP.ParseXmlAsyncTask;
 import TCP.TCPConnection;
+import TCP.TaskFinishedListener;
 import TCP.WifiStatesListener;
+import TCP.XMLParser;
+import TCP.XmlMessage;
 import TCP.onConnectionLostListener;
 
 public class MonitorActivity extends Activity {
@@ -94,11 +107,15 @@ public class MonitorActivity extends Activity {
     public  static class PlaceholderFragment extends Fragment implements View.OnClickListener , ActionEventListener {
 
         // TODO Handle WifiStatesListener
-        // TODO Waze like notification that the TCP connection is running.
-        // TODO background change sometime fails.
         // TODO check if wifi disabling is closing the connection
         // TODO create ALERT notification only if app is not showing
-        // TODO save a onsavedinstance obj to the bundle.
+        // TODO save a onSavedInstance obj to the bundle.
+        // TODO check option for catching calls and messages received on the client(baby) device and forwarding them to the server(parents).
+        // TODO create alert notification when connectionLost comes from the connection check?
+        // TODO fix port problem cant switch port after selectign one the prefs not changing
+        // TODO some UI delay when pressing the play/stop buttons
+        // TODO the edit text of the server data is still selectable when invisible need to be handled.
+        // TODO the server and client buttons need to have disabled mode when the wifi is disabled
 
         private final String TAG = PlaceholderFragment.class.getSimpleName();
 
@@ -107,12 +124,15 @@ public class MonitorActivity extends Activity {
 
         private static final int FADE_DURATION = 400, BACK_CHANGE_DURATION = 400;
 
+        /* Views*/
         private View rootView;
         private LinearLayout liServerClientBtn, liServerDataEt;
         private Button btnServer, btnClient, btnDisconnect, btnPlayStop;
-        private TextView txtIp;
+        private TextView txtIp, txtBatterLevel;
         private EditText etIp, etServerPort;
 
+        //Keep the last level received of the battery
+        int batteryPercentage = 0;
 
         // Animation
         private Animation animFadeIn, animFadeOut;
@@ -160,6 +180,9 @@ public class MonitorActivity extends Activity {
                     txtIp.setText("Not Connected To Wifi" );
 
             animTrans.setCrossFadeEnabled(true);
+
+            getActivity().registerReceiver(this.mBatInfoReceiver,
+                    new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
 
             return rootView;
         }
@@ -256,6 +279,8 @@ public class MonitorActivity extends Activity {
         public void onDestroy() {
             super.onDestroy();
             cancelConnectionNotification();
+
+            getActivity().unregisterReceiver(mBatInfoReceiver);
         }
 
         @Override
@@ -281,6 +306,7 @@ public class MonitorActivity extends Activity {
 
             // TextView - Phone Ip
             txtIp = (TextView) rootView.findViewById(R.id.txt_phone_ip);
+            txtBatterLevel = (TextView) rootView.findViewById(R.id.txt_battery_level);
         }
 
         /** Initiate the connection obj, Apply listeners etc.*/
@@ -294,8 +320,6 @@ public class MonitorActivity extends Activity {
                 @Override
                 public void onConnected(int connectionType, Object obj) {
                     Log.d(TAG, "Connected");
-
-                    animateBackground();
 
                     setToConnectedLayout();
 
@@ -360,10 +384,9 @@ public class MonitorActivity extends Activity {
         private void initDataConnection(){
             Log.d(TAG, "initDataConnection");
 
-//            app.getDataConnection().setActionEventListener(this);
-
-            //
+            // set some flags
             app.getDataConnection().preformConnectionCheck(true);
+            app.getDataConnection().setReadXml(false);
 
             app.getDataConnection().setConnectionStateChangeListener(new ConnectionStateChangeListener() {
                 @Override
@@ -410,6 +433,37 @@ public class MonitorActivity extends Activity {
                 }
             });
 
+            app.getDataConnection().setIncomingDataListener(new IncomingDataListener() {
+                @Override
+                public void onXmlReceived(XMLParser parser) {
+
+                    List<String> tags = new ArrayList<String>();
+                    tags.add("battery");
+
+                    final ParseXmlAsyncTask parseXmlAsyncTask = new ParseXmlAsyncTask();
+                    parseXmlAsyncTask.setTaskFinishedListener(new TaskFinishedListener() {
+                        @Override
+                        public void onFinished() {
+                            final List<String> data;
+                            try {
+                                data = parseXmlAsyncTask.get();
+                            } catch (InterruptedException e) {
+                                e.printStackTrace();
+                            } catch (ExecutionException e) {
+                                e.printStackTrace();
+                            }
+                        }
+                    });
+                    parseXmlAsyncTask.setTags(tags);
+
+
+
+                    parseXmlAsyncTask.execute(parser);
+
+
+                }
+            });
+
             /*app.getDataConnection().setWifiStatesListener(new WifiStatesListener() {
                 @Override
                 public void onEnabled() {
@@ -431,6 +485,7 @@ public class MonitorActivity extends Activity {
                     Log.d(TAG, "onDisconnected");
                 }
             });*/
+
         }
 
         @Override
@@ -503,13 +558,15 @@ public class MonitorActivity extends Activity {
             }
         }
 
+        /* Set the mode to of the app to disconnected.*/
         private void setDisconnected(){
-            animateBackground();
+
             setToDisconnectedLayout();
             cancelConnectionNotification();
         }
 
         @TargetApi(Build.VERSION_CODES.JELLY_BEAN)
+        /** Create an ongoing notification that can terminate the connection or play/stop the sound directly from the notification drawer.*/
         private void createConnectedNotification(boolean isStreaming){
 
             Log.d(TAG, "createConnectedNotification, " + (isStreaming ? "Streaming" : "not streaming") );
@@ -573,6 +630,7 @@ public class MonitorActivity extends Activity {
         }
 
         @TargetApi(Build.VERSION_CODES.JELLY_BEAN)
+        /** Create and alert notification that the connection has lost.*/
         private void createAlertNotification(){
 
             Intent resultIntent = new Intent(getActivity(), MonitorActivity.class);
@@ -614,13 +672,18 @@ public class MonitorActivity extends Activity {
             // TODO add other phone battery power and more data fro notification
         }
 
+        /** Cancel the ongoing notification that controls the connection state and play/stop*/
         private void cancelConnectionNotification(){
             NotificationManager mNotifyMgr =
                     (NotificationManager) getActivity().getSystemService(NOTIFICATION_SERVICE);
             mNotifyMgr.cancel(NOTIFICATION_CONNECTION_ID);
         }
 
+        /** Change the mode of the layout to connected.*/
         private void setToConnectedLayout(){
+
+            animateBackground();
+
             hideTxtIp();
             hideServerClientButtons();
             hideServerData();
@@ -630,13 +693,18 @@ public class MonitorActivity extends Activity {
                 public void run() {
                     showControlButtons();
                     showDisconnectButton();
+                    showTxtBatteryLevel();
                 }
-            }, FADE_DURATION);
+            }, FADE_DURATION - 100);
         }
-
+        /** Change the mode of the layout to disconnected.*/
         private void setToDisconnectedLayout(){
+
+            animateBackground();
+
             hideControlButtons();
             hideDisconnectButton();
+            hideTxtBatteryLevel();
 
             rootView.postDelayed(new Runnable() {
                 @Override
@@ -645,12 +713,12 @@ public class MonitorActivity extends Activity {
                     showServerClientButtons();
                     showServerData();
                 }
-            }, FADE_DURATION);
+            }, FADE_DURATION - 100);
 
             btnPlayStop.setSelected(false);
         }
 
-        // Animate
+        /* Fade in and Fade out given view*/
         private void  fadeViewIn(final View v){
 
             v.setAlpha(0f);
@@ -658,7 +726,6 @@ public class MonitorActivity extends Activity {
 
             v.animate().alpha(1f).setDuration(FADE_DURATION).setListener(null);
         }
-
         private void fadeViewOut(final View v){
 
             v.animate()
@@ -672,6 +739,7 @@ public class MonitorActivity extends Activity {
                     });
         }
 
+        /** Animating the background color*/
         private void animateBackground(){
             animTrans.setCrossFadeEnabled(true);
 
@@ -687,54 +755,164 @@ public class MonitorActivity extends Activity {
             }
         }
 
+        /* The control buttons */
         private void showControlButtons(){
             fadeViewIn(btnPlayStop);
 
             btnPlayStop.setOnClickListener(this);
         }
-
         private void hideControlButtons(){
             fadeViewOut(btnPlayStop);
             btnPlayStop.setOnClickListener(null);
         }
 
+        /* The IP and PORT data*/
         private void showServerData(){
             btnClient.setSelected(false);
             btnServer.setSelected(false);
             fadeViewIn(liServerDataEt);
         }
-
         private void hideServerData(){
             fadeViewOut(liServerDataEt);
         }
 
+        /* Disconnect Button*/
         private void showDisconnectButton(){
            fadeViewIn(btnDisconnect);
 
             btnDisconnect.setOnClickListener(this);
         }
-
         private void hideDisconnectButton(){
             fadeViewOut(btnDisconnect);
 
             btnDisconnect.setOnClickListener(null);
         }
 
+        /*Server And Client Buttons*/
         private void showServerClientButtons(){
             fadeViewIn(liServerClientBtn);
         }
-
         private void hideServerClientButtons(){
             fadeViewOut(liServerClientBtn);
         }
 
+        /* Ip address of the phone*/
         private void showTxtIp(){
             fadeViewIn(txtIp);
-        }
 
+        }
         private void hideTxtIp(){
             fadeViewOut(txtIp);
         }
+
+        /* battery level textview*/
+        private void showTxtBatteryLevel(){
+            fadeViewIn(txtBatterLevel);
+            txtBatterLevel.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    Log.d(TAG, "OnClick");
+                    List<XmlMessage> xmlMessages = new ArrayList<XmlMessage>();
+                    xmlMessages.add(new XmlMessage(String.valueOf(50)));
+
+                    final CreateXmlAsyncTask task = new CreateXmlAsyncTask();
+                    task.setTaskFinishedListener(new TaskFinishedListener() {
+                        @Override
+                        public void onFinished() {
+                            if (app.getDataConnection().isConnected()){
+                                try {
+                                    String xml = task.get();
+                                    Log.i(TAG, xml);
+                                    app.getDataConnection().write(xml);
+                                } catch (InterruptedException e) {
+                                    e.printStackTrace();
+                                } catch (ExecutionException e) {
+                                    e.printStackTrace();
+                                }
+                            }
+                        }
+                    });
+
+                    task.execute(xmlMessages);
+                }
+            });
+        }
+        private void hideTxtBatteryLevel(){
+            fadeViewOut(txtBatterLevel);
+            txtBatterLevel.setOnClickListener(null);
+        }
+
+        private BroadcastReceiver mBatInfoReceiver = new BroadcastReceiver(){
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                //this will give you battery current status
+
+                try{
+                    int level = intent.getIntExtra("level", 0);
+                    Log.i(TAG, "Level: " + level);
+
+                    if (true || batteryPercentage != level)
+                    {
+                        txtBatterLevel.setText(String.valueOf(level));
+                        List<XmlMessage> xmlMessages = new ArrayList<XmlMessage>();
+                        xmlMessages.add(new XmlMessage(String.valueOf(level)));
+
+                        final CreateXmlAsyncTask task = new CreateXmlAsyncTask();
+                        task.setTaskFinishedListener(new TaskFinishedListener() {
+                            @Override
+                            public void onFinished() {
+                                if (app.getDataConnection().isConnected()){
+                                    try {
+                                        String xml = task.get();
+                                        Log.i(TAG, xml);
+                                        app.getDataConnection().write(xml);
+                                    } catch (InterruptedException e) {
+                                        e.printStackTrace();
+                                    } catch (ExecutionException e) {
+                                        e.printStackTrace();
+                                    }
+                                }
+                            }
+                        });
+
+                        task.execute(xmlMessages);
+                    }
+
+/*                    int temp = intent.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, -1);
+                    int voltage = intent.getIntExtra(BatteryManager.EXTRA_VOLTAGE, -1);
+                    int status = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1);
+
+                    String BStatus = "No Data";
+                    if (status == BatteryManager.BATTERY_STATUS_CHARGING){BStatus = "Charging";}
+                    if (status == BatteryManager.BATTERY_STATUS_DISCHARGING){BStatus = "Discharging";}
+                    if (status == BatteryManager.BATTERY_STATUS_FULL){BStatus = "Full";}
+                    if (status == BatteryManager.BATTERY_STATUS_NOT_CHARGING){BStatus = "Not Charging";}
+                    if (status == BatteryManager.BATTERY_STATUS_UNKNOWN){BStatus = "Unknown";}
+
+                    int chargePlug = intent.getIntExtra(BatteryManager.EXTRA_PLUGGED, -1);
+                    String BattPowerSource = "No Data";
+                    if (chargePlug == BatteryManager.BATTERY_PLUGGED_AC){BattPowerSource = "AC";}
+                    if (chargePlug == BatteryManager.BATTERY_PLUGGED_USB){BattPowerSource = "USB";}
+
+                    String BattLevel = String.valueOf(level);
+
+                    int BHealth = intent.getIntExtra(BatteryManager.EXTRA_HEALTH, -1);
+                    String BatteryHealth = "No Data";
+                    if (BHealth == BatteryManager.BATTERY_HEALTH_COLD){BatteryHealth = "Cold";}
+                    if (BHealth == BatteryManager.BATTERY_HEALTH_DEAD){BatteryHealth = "Dead";}
+                    if (BHealth == BatteryManager.BATTERY_HEALTH_GOOD){BatteryHealth = "Good";}
+                    if (BHealth == BatteryManager.BATTERY_HEALTH_OVER_VOLTAGE){BatteryHealth = "Over-Voltage";}
+                    if (BHealth == BatteryManager.BATTERY_HEALTH_OVERHEAT){BatteryHealth = "Overheat";}
+                    if (BHealth == BatteryManager.BATTERY_HEALTH_UNKNOWN){BatteryHealth = "Unknown";}
+                    if (BHealth == BatteryManager.BATTERY_HEALTH_UNSPECIFIED_FAILURE){BatteryHealth = "Unspecified Failure";}
+
+                    Log.i(TAG, "Level: " + level + " Status: "  + status + " Power Source: " + BattPowerSource + " Battery Health: " + BatteryHealth); */
+
+                } catch (Exception e){
+                    Log.v(TAG, "Battery Info Error");
+                }
+            }
+        };
 
     }
 }

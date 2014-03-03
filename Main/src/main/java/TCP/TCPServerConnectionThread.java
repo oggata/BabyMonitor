@@ -54,7 +54,7 @@ public class TCPServerConnectionThread extends Thread{
     @Override
     public void run() {
 
-        while (!close)
+        while (!isInterrupted() || !close)
         {
             if (accept)
                 accept();

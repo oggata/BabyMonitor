@@ -1,4 +1,4 @@
-package TCP;
+package braunster.babymonitor;
 
 import android.util.Log;
 
@@ -12,6 +12,8 @@ import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
+
+import TCP.XMLParser;
 
 /**
  * Created by itzik on 2/25/14.

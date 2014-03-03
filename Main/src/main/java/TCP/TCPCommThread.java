@@ -22,7 +22,7 @@ public class TCPCommThread extends Thread {
 
     // TODO Add another TCP connection for data transfer like battery power and preforming check.
 
-    private final String TAG = TCPCommThread.class.getSimpleName();
+    private static final String TAG = TCPCommThread.class.getSimpleName();
 
     private Socket tcpSocket; // The TCP Socket
     private Context context;
@@ -35,6 +35,8 @@ public class TCPCommThread extends Thread {
     private InputStream mmInStream;
     private OutputStream mmOutStream;
 
+    private XMLParser xmlParser;
+
     // Play and Record Threads.
     private LoadAndPlayAudioStream loadAndPlayStream;
     private RecodedAndSendAudioStream recodedAndSendAudioStream;
@@ -45,7 +47,8 @@ public class TCPCommThread extends Thread {
     private boolean isStreamOn = false,
                     playLiveAudio = false, readCommand = false,
                     recordLiveAudio = false,
-                    close = false, checkConnection = false;
+                    close = false, checkConnection = false,
+                    readXml = false;
 
     // List of messages that are pending to be sent
     private List<String> messages = new ArrayList<String>();
@@ -129,6 +132,10 @@ public class TCPCommThread extends Thread {
                 readCommand = false;
             }
 
+            if (!close && isStreamsInitialized() && readXml){
+                readXml();
+            }
+
             //There messages to send
             if (messages.size() > 0){
                 if (isStreamsInitialized())
@@ -207,9 +214,9 @@ public class TCPCommThread extends Thread {
     /** Start Playing live audio*/
     private boolean playLiveAudio(){
 
-        Log.i(TAG, "Playing Live Audio");
+        Log.v(TAG, "Playing Live Audio");
 
-        if (isStreamsInitialized())
+        if (isStreamsInitialized() && !readXml)
         {
             if (loadAndPlayStream == null)
                 loadAndPlayStream = new LoadAndPlayAudioStream(mmInStream);
@@ -231,9 +238,9 @@ public class TCPCommThread extends Thread {
 
                 return true;            }
             else
-                Log.i(TAG, "Already Playing");
+                Log.v(TAG, "Already Playing");
         }
-        else Log.d(TAG, "Stream not initialized");
+        else Log.v(TAG, "Stream not initialized or on xml mode");
 
         return false;
     }
@@ -248,9 +255,9 @@ public class TCPCommThread extends Thread {
 
     /** Start Recording live audio*/
     private boolean recordLiveAudio(){
-        Log.d(TAG, "Record live audio");
+        Log.v(TAG, "Record live audio");
 
-        if (isStreamsInitialized())
+        if (isStreamsInitialized() && !readXml)
         {
             if (recodedAndSendAudioStream == null)
                 recodedAndSendAudioStream = new RecodedAndSendAudioStream(mmOutStream);
@@ -274,9 +281,9 @@ public class TCPCommThread extends Thread {
                 return true;
             }
         }
-        else Log.d(TAG, "Stream not initialized");
+        else Log.v(TAG, "Stream not initialized or on xml mode");
 
-        Log.d(TAG, "Already Recording");
+        Log.v(TAG, "Already Recording");
 
         return false;
     }
@@ -344,6 +351,59 @@ public class TCPCommThread extends Thread {
         }
     }
 
+    private void readXml(){
+        try {
+            if (mmInStream  != null && mmInStream.available() > 0)
+            {
+                Log.i(TAG, "readXml");
+
+                xmlParser = new XMLParser(mmInStream);
+                reportToHandler(TCPConnection.XML_DATA_IS_RECEIVED);
+
+            }
+
+            sleep(100);
+
+        } catch (IOException e) {
+            e.printStackTrace();
+            reportToHandler(TCPConnection.ERROR_MSG_NOT_SENT);
+        } catch (InterruptedException e) {
+//            e.printStackTrace();
+            Log.e(TAG, "Sleep exception");
+        } catch (Exception e) {
+//            e.printStackTrace();
+            Log.e(TAG, "Create XML exception");
+        }
+    }
+
+    private static String convertStreamToString(InputStream is) {
+    /*
+     * To convert the InputStream to String we use the BufferedReader.readLine()
+     * method. We iterate until the BufferedReader return null which means
+     * there's no more data to read. Each line will appended to a StringBuilder
+     * and returned as String.
+     */
+        BufferedReader reader = new BufferedReader(new InputStreamReader(is));
+        StringBuilder sb = new StringBuilder();
+
+        String line = null;
+        try {
+            while ((line = reader.readLine()) != null) {
+                Log.d(TAG, line);
+                sb.append(line + "\n");
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            try {
+                is.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        return sb.toString();
+    }
+
     /* Getters and Setters*/
     public AudioController getAudioController() {
         return audioController;
@@ -359,6 +419,10 @@ public class TCPCommThread extends Thread {
 
     public void setHandler(Handler handler) {
         this.handler = handler;
+    }
+
+    public void setReadXml(boolean readXml) {
+        this.readXml = readXml;
     }
 
     public void setAudioStreamForcedStoppedListener(AudioStreamForcedStoppedListener audioStreamForcedStoppedListener) {
@@ -456,6 +520,11 @@ public class TCPCommThread extends Thread {
     private void reportToHandler(int code){
         Message msg = new Message();
         msg.what = code;
+
+        if (code == TCPConnection.XML_DATA_IS_RECEIVED)
+            msg.obj = xmlParser;
+
         handler.sendMessage(msg);
     }
+
 }

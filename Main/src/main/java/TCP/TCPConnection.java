@@ -27,6 +27,10 @@ public class TCPConnection {
     // The time passes between each check inside the communication thread.
     public static int TIME_BETWEEN_CHECKS = 1000 * 5;
 
+    /*Flags*/
+    public static final int FLAG_CHECK_CONNECTION = 5000;
+    public static final int FLAG_READ_XML = 5001;
+
     /*Key's*/
     public static final String CONNECTION_STATUS = "connection.status";
     public static final String CONNECTION_TYPE = "connection.type";
@@ -52,6 +56,7 @@ public class TCPConnection {
     public static final int ERROR_MSG_NOT_SENT = 6006;
     public static final int ERROR_OPENING_SERVER = 6007;
     public static final int ERROR_RECORD_STREAM_STOPPED = 6008;
+    public static final int XML_DATA_IS_RECEIVED = 6009;
 
     /*Connection Statuses*/
     public static final String CONNECTED = "connection.connected";
@@ -85,7 +90,6 @@ public class TCPConnection {
     private Check connectionCheck = new Check(); // The object that contain all the details of the connection check.
     private boolean isHandleLastCheck = true; // Flag indicating if the last connection check results was handel.
                                               // Set to true because false will make the connection try to handle an empty check object.
-
     private String connectionStatus = DISCONNECTED, connectionIssue;
     private Object tag; // The name of the device that the connection is bound to.
     private ServerSocket serverSocket;
@@ -110,9 +114,12 @@ public class TCPConnection {
     private onConnectionLostListener onConnectionLost;
     private WifiStatesListener wifiStatesListener;
     private ActionEventListener actionEventListener;
+    private IncomingDataListener incomingDataListener;
 
-    // Flag that passes on to the communication thread and tell him to preform check or not.
-    private boolean preformConnectionCheck = false;
+    private boolean preformConnectionCheck = false;// Flag that passes on to the communication thread and tell him to preform check or not.
+    private boolean readXml = false;// Flag that passes on to the communication thread and tell him to format data received to xml file.
+
+    /*-----Public Methods ------*/
 
     /*Constructor*/
     public TCPConnection(Context context){
@@ -142,6 +149,7 @@ public class TCPConnection {
                         commThread = new TCPCommThread( (Socket) msg.obj );
                         commThread.setHandler(this);
                         commThread.setCheckConnection(preformConnectionCheck);
+                        commThread.setReadXml(readXml);
                         commThread.start();
 
                         connectionStatus = CONNECTED;
@@ -151,6 +159,15 @@ public class TCPConnection {
                             connectionStateChangeListener.onConnectionChangeState(TCPConnection.this.connectionType, connectionStatus);
                         }
                         else  { Log.e(TAG, "Connection has no connection state change listener"); }
+
+                        break;
+
+                    case XML_DATA_IS_RECEIVED:
+
+                        if (incomingDataListener != null)
+                            incomingDataListener.onXmlReceived( (XMLParser) msg.obj);
+                        else
+                            Log.e(TAG, "No incoming data listener");
 
                         break;
 
@@ -232,7 +249,7 @@ public class TCPConnection {
             registerActionReceiver();
 
             if (connectionType == CLIENT)
-                tcpServerConnectionThread.close();
+                tcpServerConnectionThread.interrupt();
 
             this.connectionType = SERVER;
 
@@ -254,7 +271,7 @@ public class TCPConnection {
             registerActionReceiver();
 
             if (connectionType == SERVER)
-                tcpServerConnectionThread.close();
+                tcpServerConnectionThread.interrupt();
 
             this.connectionType = CLIENT;
 
@@ -268,6 +285,14 @@ public class TCPConnection {
         return false;
     }
 
+    public boolean write(String message){
+
+        if (isConnected())
+            commThread.write(message);
+
+        return isConnected();
+    }
+
     /* Stop running thread and set ConnectionStatus to Disconnected and call the start() method. */
     /**
      * @deprecated  this method is detracted till Library will be more stable */
@@ -277,25 +302,6 @@ public class TCPConnection {
 
         start(connectionType);
 
-    }
-
-    /** Return AudioController interface to control the audio stream*/
-    public TCPCommThread.AudioController getAudioController(){
-        if (connectionStatus.equals(CONNECTED) && commThread != null)
-            return commThread.getAudioController();
-        else
-            return null;
-    }
-
-    public TCPCommThread.RecordController getRecordController(){
-        if (connectionStatus.equals(CONNECTED) && commThread != null)
-            return commThread.getRecordController();
-        else return null;
-    }
-
-    /** Return true if the state of the connection is CONNECTED any other state will return false(i.e DISCONNECTED, SCANNING, CONNECTING etc.*/
-    public synchronized boolean isConnected(){
-        return connectionStatus.equals(CONNECTED);
     }
 
     /** Close the connection and all his belonging, Stop communication, record, playing sound etc...*/
@@ -318,6 +324,27 @@ public class TCPConnection {
         if (tcpServerConnectionThread != null)
             tcpServerConnectionThread.close();
     }
+
+    /** Return true if the state of the connection is CONNECTED any other state will return false(i.e DISCONNECTED, SCANNING, CONNECTING etc.*/
+    public synchronized boolean isConnected(){
+        return connectionStatus.equals(CONNECTED);
+    }
+
+    /** Return AudioController interface to control the audio stream*/
+    public TCPCommThread.AudioController getAudioController(){
+        if (connectionStatus.equals(CONNECTED) && commThread != null)
+            return commThread.getAudioController();
+        else
+            return null;
+    }
+
+    public TCPCommThread.RecordController getRecordController(){
+        if (connectionStatus.equals(CONNECTED) && commThread != null)
+            return commThread.getRecordController();
+        else return null;
+    }
+
+    /*-----Private Methods ------*/
 
     /** Close the connection when an issue occur and notify the onConnectionLost listener so the disconnection could be handled.*/
     private void close(String issue){
@@ -379,7 +406,7 @@ public class TCPConnection {
 
     private void closeConnectionThread(){
         if (tcpServerConnectionThread != null)
-            tcpServerConnectionThread.close();
+            tcpServerConnectionThread.interrupt();
     }
 
     /** Stop the communication thread*/
@@ -437,6 +464,10 @@ public class TCPConnection {
         connectionStateChangeListener = listener;
     }
 
+    public void setIncomingDataListener(IncomingDataListener incomingDataListener) {
+        this.incomingDataListener = incomingDataListener;
+    }
+
     public void setWifiStatesListener(WifiStatesListener wifiStatesListener) {
         registerWifiReceiver();
         this.wifiStatesListener = wifiStatesListener;
@@ -444,6 +475,10 @@ public class TCPConnection {
 
     public void setActionEventListener(ActionEventListener actionEventListener) {
         this.actionEventListener = actionEventListener;
+    }
+
+    public void setReadXml(boolean readXml) {
+        this.readXml = readXml;
     }
 
     public void setTimeBetweenChecks(int timeBetweenChecks) {

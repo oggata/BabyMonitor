@@ -13,7 +13,7 @@ public class BabyMonitorAppObj extends Application {
 
     private TCPConnection streamConnection, dataConnection;
 
-    private final static String APIKEY = "7d589131";
+    private final static String APIKEY = "a5522b00";
 
     @Override
     public void onCreate() {

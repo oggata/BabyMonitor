@@ -1,7 +1,5 @@
 package TCP;
 
-import android.app.ProgressDialog;
-import android.content.Context;
 import android.os.AsyncTask;
 import android.util.Log;
 
@@ -15,22 +13,9 @@ public class ParseXmlAsyncTask extends AsyncTask<XMLParser, Integer, List<String
 
     private final static String  TAG = ParseXmlAsyncTask.class.getSimpleName();
 
-    private Context context;
-    private ProgressDialog progressDialog;
+    private TaskFinishedListener taskFinishedListener;
+    private   List<String> tags = new ArrayList<String>();
 
-    public ParseXmlAsyncTask(Context context){
-        this.context = context;
-    }
-
-    @Override
-    protected void onPreExecute() {
-        super.onPreExecute();
-
-        progressDialog = new ProgressDialog(context);
-        progressDialog.setMessage("Parsing...");
-        progressDialog.show();
-
-    }
 
     @Override
     protected List doInBackground(XMLParser... params) {
@@ -38,32 +23,14 @@ public class ParseXmlAsyncTask extends AsyncTask<XMLParser, Integer, List<String
 
         List<String> data = null;
 
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    Thread.currentThread().sleep(10000);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-            }
-        }).start();
-
-
 
         if (xmlParser != null)
         {
-            List<String> tags = new ArrayList<String>();
-            tags.add("Ip");
-            tags.add("CountryCode");
-            tags.add("CountryName");
-            tags.add("City");
-            tags.add("Latitude");
-
             data = xmlParser.getDataForTags(tags);
 
-            for (int i = 0 ; i < data.size(); i++)
-                Log.i(TAG, data.get(i));
+            if (data != null)
+                for (int i = 0 ; i < data.size(); i++)
+                    Log.i(TAG, data.get(i));
         }
         else
             Log.d(TAG, "Parser is empty");
@@ -72,16 +39,20 @@ public class ParseXmlAsyncTask extends AsyncTask<XMLParser, Integer, List<String
     }
 
     @Override
-    protected void onProgressUpdate(Integer... values) {
-        super.onProgressUpdate(values);
-    }
-
-    @Override
     protected void onPostExecute(List<String> o) {
         super.onPostExecute(o);
 
-        progressDialog.dismiss();
+        if (taskFinishedListener != null)
+            taskFinishedListener.onFinished();
+        else
+            Log.v(TAG, "no task finished listener");
+    }
 
+    public void setTaskFinishedListener(TaskFinishedListener taskFinishedListener) {
+        this.taskFinishedListener = taskFinishedListener;
+    }
 
+    public void setTags(List<String> tags) {
+        this.tags = tags;
     }
 }
