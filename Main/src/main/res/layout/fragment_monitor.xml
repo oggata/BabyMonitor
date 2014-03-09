@@ -10,16 +10,6 @@
     android:background="@drawable/background_transition"
     android:orientation="vertical">
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Phone Ip"
-        android:id="@+id/txt_phone_ip"
-        android:paddingTop="10dp"
-        android:paddingBottom="10dp"
-        android:layout_gravity="center_horizontal"
-        />
-
     <RelativeLayout
         android:layout_width="fill_parent"
         android:layout_height="fill_parent">
@@ -30,17 +20,19 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_centerHorizontal="true"
-            android:id="@+id/linear_client_server_select_buttons">
+            android:id="@+id/linear_client_server_select_buttons"
+            android:layout_below="@+id/txt_phone_ip"
+            android:padding="20dp">
 
             <Button
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_width="100dp"
+                android:layout_height="100dp"
                 android:background="@drawable/baby_btn_selector"
                 android:id="@+id/btn_start_client"/>
 
             <Button
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_width="100dp"
+                android:layout_height="100dp"
                 android:id="@+id/btn_start_server"
                 android:background="@drawable/parent_btn_selector"/>
         </LinearLayout>
@@ -50,13 +42,15 @@
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:id="@+id/linear_server_data"
-            android:layout_centerVertical="true"
-            android:layout_centerHorizontal="true">
+            android:layout_centerHorizontal="true"
+            android:layout_below="@+id/linear_client_server_select_buttons"
+            android:paddingTop="80dp">
 
             <EditText
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:inputType="text"
+                android:typeface="monospace"
                 android:ems="10"
                 android:id="@+id/et_server_ip"
                 android:hint="Server Ip"/>
@@ -65,9 +59,11 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:inputType="number"
+                android:typeface="monospace"
                 android:ems="10"
                 android:id="@+id/et_server_port"
-                android:hint="Server Port"/>
+                android:hint="Server Port"
+                android:visibility="gone"/>
 
             </LinearLayout>
 
@@ -78,8 +74,7 @@
             android:id="@+id/btn_disconnect"
             android:visibility="invisible"
             android:layout_centerHorizontal="true"
-            android:layout_above="@+id/btn_stop_play"
-            android:layout_centerVertical="true"/>
+            android:layout_below="@+id/txt"/>
 
         <Button
             android:layout_width="wrap_content"
@@ -89,7 +84,8 @@
             android:layout_alignParentBottom="true"
             android:layout_centerHorizontal="true"
             android:visibility="invisible"
-            android:layout_weight="1" />
+            android:layout_weight="1"
+            android:paddingBottom="20dp"/>
 
         <TextView
             android:layout_width="wrap_content"
@@ -101,7 +97,42 @@
             android:layout_alignParentTop="true"
             android:layout_alignParentLeft="true"
             android:layout_alignParentStart="true"
+            android:typeface="monospace"
             android:visibility="invisible"/>
+
+        <Button
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:id="@+id/btn_info"
+            android:layout_gravity="right"
+            android:background="@drawable/info_btn_selector"
+            android:padding="10dp"
+            android:layout_alignParentTop="true"
+            android:layout_toRightOf="@+id/btn_setting"
+            android:tag="@string/disconnect"/>
+
+        <Button
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:id="@+id/btn_setting"
+            android:layout_gravity="right"
+            android:background="@drawable/setting_btn_selector"
+            android:padding="10dp"
+            android:layout_alignParentTop="true"
+            android:layout_alignParentLeft="true"
+            android:tag="@string/disconnect" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Phone Ip"
+            android:textSize="15dp"
+            android:typeface="monospace"
+            android:id="@+id/txt_phone_ip"
+            android:paddingTop="10dp"
+            android:paddingBottom="10dp"
+            android:layout_centerHorizontal="true"
+            android:layout_alignParentTop="true"/>
 
     </RelativeLayout>
 

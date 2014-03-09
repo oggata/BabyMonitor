@@ -57,6 +57,7 @@ public class TCPConnection {
     public static final int ERROR_OPENING_SERVER = 6007;
     public static final int ERROR_RECORD_STREAM_STOPPED = 6008;
     public static final int XML_DATA_IS_RECEIVED = 6009;
+    public static final int ERROR_CANT_OPEN_SERVER = 6010;
 
     /*Connection Statuses*/
     public static final String CONNECTED = "connection.connected";
@@ -73,6 +74,7 @@ public class TCPConnection {
     public static final String ISSUE_NO_END_POINT = "connection.issue.no_server_end_point";// No server has been found for the given ip and port
     public static final String ISSUE_STREAM_FAILED = "connection.issue.stream_failed";
     public static final String ISSUE_CLOSED_VIA_ACTION = "connection.issue.connection_was_closed_via_action";
+    public static final String ISSUE_OPENING_A_SERVER = "connection.issue.opening_a_serer";
 
     /*Connection Types*/
     public static final int CLIENT = 9000;
@@ -144,7 +146,7 @@ public class TCPConnection {
 
                         if (commThread != null) { commThread.interrupt(); }
 
-                        closeConnectionThread();
+                        stopConnectionThread();
 
                         commThread = new TCPCommThread( (Socket) msg.obj );
                         commThread.setHandler(this);
@@ -173,13 +175,26 @@ public class TCPConnection {
 
                     case ERROR_ACCEPTATION_TIMEOUT:
 
-                        Log.e(TAG, "TCP Acceptation Timeout");
+                    Log.e(TAG, "TCP Acceptation Timeout");
+
+                    connectionStatus = DISCONNECTED;
+
+                    tcpServerConnectionThread.close();
+
+                    if ( connectionStateChangeListener != null) { connectionStateChangeListener.onConnectionFailed(ISSUE_WIFI_TCP_SERVER_TIMEOUT); }
+                    else  { Log.e(TAG, "No connection state change listener"); }
+
+                    break;
+
+                    case ERROR_CANT_OPEN_SERVER:
+
+                        Log.e(TAG, "TCP Error Opening a server");
 
                         connectionStatus = DISCONNECTED;
 
-                        closeConnectionThread();
+                        tcpServerConnectionThread.close();
 
-                        if ( connectionStateChangeListener != null) { connectionStateChangeListener.onConnectionFailed(ISSUE_WIFI_TCP_SERVER_TIMEOUT); }
+                        if ( connectionStateChangeListener != null) { connectionStateChangeListener.onConnectionFailed(ISSUE_OPENING_A_SERVER); }
                         else  { Log.e(TAG, "No connection state change listener"); }
 
                         break;
@@ -190,7 +205,7 @@ public class TCPConnection {
 
                         connectionStatus = DISCONNECTED;
 
-                        closeConnectionThread();
+                        stopConnectionThread();
 
                         if ( connectionStateChangeListener != null) { connectionStateChangeListener.onConnectionFailed(ISSUE_NO_END_POINT); }
                         else  { Log.e(TAG, "No connection state change listener"); }
@@ -308,21 +323,25 @@ public class TCPConnection {
     public void close(){
         Log.i(TAG, "Closing Connection, Connection Type: " + connectionType );
 
-        closeConnectionThread();
+        if (tcpServerConnectionThread != null)
+            tcpServerConnectionThread.close();
+
+        stopConnectionThread();
 
         stopCommunicationThread();
 
-        unregisterWifiReceiver();
-
-        unregisterActionReceiver();
+//        unregisterWifiReceiver();
+//
+//        unregisterActionReceiver();
     }
 
     /** @deprecated this method is detracted till Library will be more stable */
     public void Terminate(){
         close();
 
-        if (tcpServerConnectionThread != null)
-            tcpServerConnectionThread.close();
+        unregisterActionReceiver();
+
+        unregisterWifiReceiver();
     }
 
     /** Return true if the state of the connection is CONNECTED any other state will return false(i.e DISCONNECTED, SCANNING, CONNECTING etc.*/
@@ -385,6 +404,8 @@ public class TCPConnection {
             case SERVER:
                 if (serverSocket != null && !tcpServerConnectionThread.isClosed() &&!tcpServerConnectionThread.isAccepting())
                     tcpServerConnectionThread.startAccept(true);
+//                    tcpServerConnectionThread.close();
+
                 else
                 {
                     tcpServerConnectionThread = new TCPServerConnectionThread(serverPort);
@@ -404,7 +425,7 @@ public class TCPConnection {
 
     }
 
-    private void closeConnectionThread(){
+    private void stopConnectionThread(){
         if (tcpServerConnectionThread != null)
             tcpServerConnectionThread.interrupt();
     }
@@ -589,9 +610,10 @@ public class TCPConnection {
                     if (wifiStatesListener != null)
                         wifiStatesListener.onDisabled();
                     else
+                    {
                         Log.e(TAG, "no wifi states change listener");
-
-                    close(ISSUE_WIFI_DISABLED);
+                        close(ISSUE_WIFI_DISABLED);
+                    }
                 }
                 else if (intent.getIntExtra(WifiManager.EXTRA_WIFI_STATE, 0) == WifiManager.WIFI_STATE_ENABLED)
                 {

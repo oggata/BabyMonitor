@@ -15,7 +15,7 @@ public class AudioStreamPlayer implements Runnable{
     private final String TAG = AudioStreamPlayer.class.getSimpleName();
 
     public static final int SAMPLE_44100 = 44100;
-    public static final int SAMPLE_10000 = 10000;
+    public static final int SAMPLE_8000 = 8000;
 
     private static final int MIN_BUFFER_FOR_PLAY = 1000 * 50;
 
@@ -24,7 +24,7 @@ public class AudioStreamPlayer implements Runnable{
     private long byteCount = 0;
     private boolean isPlaying = false;
 
-    private final int sampleRate;
+    private int sampleRate = 44100; // Default
     private int trackSeconds = -1, trackLastSeconds = -1, trackFrames = -1, trackLastFrames = -1;
 
     public AudioStreamPlayer(byte[] bytes, int sampleRate){
@@ -41,7 +41,7 @@ public class AudioStreamPlayer implements Runnable{
 
     public void startBufferAudio() {
 
-        track = new AudioTrack(AudioManager.STREAM_MUSIC, SAMPLE_44100,
+        track = new AudioTrack(AudioManager.STREAM_MUSIC, sampleRate,
                 AudioFormat.CHANNEL_OUT_STEREO, AudioFormat.ENCODING_PCM_16BIT,
                 MIN_BUFFER_FOR_PLAY / 2, AudioTrack.MODE_STREAM);
 

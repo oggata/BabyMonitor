@@ -105,7 +105,8 @@ public class TCPCommThread extends Thread {
                     if (isStreamsInitialized())
                     {
                         audioController.stop();
-                        recordController.stop();
+
+                        closeRecord();
 
                         mmOutStream.close();
                         mmInStream.close();
@@ -219,7 +220,7 @@ public class TCPCommThread extends Thread {
         if (isStreamsInitialized() && !readXml)
         {
             if (loadAndPlayStream == null)
-                loadAndPlayStream = new LoadAndPlayAudioStream(mmInStream);
+                loadAndPlayStream = new LoadAndPlayAudioStream(mmInStream, AudioStreamController.sampleRate);
 
             if(!loadAndPlayStream.isPlaying())
             {
@@ -260,7 +261,7 @@ public class TCPCommThread extends Thread {
         if (isStreamsInitialized() && !readXml)
         {
             if (recodedAndSendAudioStream == null)
-                recodedAndSendAudioStream = new RecodedAndSendAudioStream(mmOutStream);
+                recodedAndSendAudioStream = new RecodedAndSendAudioStream(mmOutStream, AudioStreamController.sampleRate);
 
             if (!recodedAndSendAudioStream.isRecording())
             {
@@ -270,11 +271,16 @@ public class TCPCommThread extends Thread {
                     @Override
                     public void onFailed() {
                         reportToHandler(TCPConnection.ERROR_RECORD_STREAM_STOPPED);
+                        closeRecord();
                     }
                 });
 
-                if (!recodedAndSendAudioStream.isAlive())
-                    recodedAndSendAudioStream.start();
+                try {
+                    if (!recodedAndSendAudioStream.isAlive())
+                        recodedAndSendAudioStream.start();
+                } catch (IllegalThreadStateException e) {
+                    e.printStackTrace();
+                }
 
                 recodedAndSendAudioStream.startRecord();
 
@@ -290,6 +296,11 @@ public class TCPCommThread extends Thread {
 
     private void stopRecord(){
         Log.d(TAG, "Stop Record");
+        if (recodedAndSendAudioStream != null)
+            recodedAndSendAudioStream.stopRecord();
+    }
+
+    private void closeRecord(){
         if (recodedAndSendAudioStream != null)
             recodedAndSendAudioStream.close();
 

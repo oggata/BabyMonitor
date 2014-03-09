@@ -1,6 +1,5 @@
 package TCP;
 
-import android.media.AudioFormat;
 import android.media.AudioRecord;
 import android.media.MediaRecorder;
 import android.util.Log;
@@ -17,10 +16,6 @@ public class RecodedAndSendAudioStream extends Thread {
 
     private final String TAG = RecodedAndSendAudioStream.class.getSimpleName();
 
-    private static final int FREQUENCY = 44100;
-    private static final int CHANNEL_CONFIGURATION = AudioFormat.CHANNEL_IN_STEREO;
-    private static final int AUDIO_ENCODING = AudioFormat.ENCODING_PCM_16BIT;
-
     private OutputStream output;
 
     private OnRecordFailed onRecordFailed;
@@ -32,12 +27,24 @@ public class RecodedAndSendAudioStream extends Thread {
     private byte[] buffer;
 
 
-    private boolean isRecording = false, close = false;
+    private boolean isRecording = false, close = false, prepare = false, startRecording = false, stop = false;
+    private int sampleRate = AudioStreamController.FREQUENCY_8000; // Default
 
     public RecodedAndSendAudioStream(OutputStream outputStream){
 
         Log.d(TAG, "RecodedAndSendAudioStream Created.");
         output = outputStream;
+
+        prepareRecording();
+
+    }
+
+    public RecodedAndSendAudioStream(OutputStream outputStream, int sampleRate){
+
+        Log.d(TAG, "RecodedAndSendAudioStream Created. Sample Rate: " + sampleRate);
+        output = outputStream;
+
+        this.sampleRate = sampleRate;
 
         prepareRecording();
 
@@ -49,9 +56,72 @@ public class RecodedAndSendAudioStream extends Thread {
 
         while(!Thread.currentThread().isInterrupted())
         {
+            if (prepare){
+                try {
+
+                    // TODO fix auto pick sample rate, pass data to other connection of pereferd rate.
+
+                    /*for (int rate : new int[] {8000, 11025, 16000, 22050, 44100}) {  // add the rates you wish to check against
+                        int bufferSize = AudioRecord.getMinBufferSize(rate, CHANNEL_CONFIGURATION, AUDIO_ENCODING);
+                        if (bufferSize > 0) {
+                            Log.d(TAG, "Rate of recording is: " + rate);
+                            // buffer size is valid, Sample rate supported
+                            // Create a new AudioRecord object to record the audio.
+                            bufferSize = AudioRecord.getMinBufferSize(44100, CHANNEL_CONFIGURATION, AUDIO_ENCODING);
+                            audioRecord = new AudioRecord(MediaRecorder.AudioSource.MIC, 44100, CHANNEL_CONFIGURATION, AUDIO_ENCODING, bufferSize);
+
+                            buffer = new byte[bufferSize];
+
+                            prepare = false;
+
+                            break;
+                        }
+                    }*/
+
+                    /*if (prepare)
+                    {
+                        if (onRecordFailed != null)
+                            onRecordFailed.onFailed();
+                        else
+                            Log.e(TAG, "No recored failed listener");
+
+                        Log.e(TAG, "Record failed because of no buffer size found");//TODO notify user
+                    }*/
+
+                    bufferSize = AudioRecord.getMinBufferSize(sampleRate, AudioStreamController.CHANNEL_CONFIGURATION, AudioStreamController.AUDIO_ENCODING);
+                    audioRecord = new AudioRecord(MediaRecorder.AudioSource.MIC, sampleRate, AudioStreamController.CHANNEL_CONFIGURATION, AudioStreamController.AUDIO_ENCODING, bufferSize);
+
+                    buffer = new byte[bufferSize];
+
+                    prepare = false;
+
+
+
+                } catch (IllegalArgumentException e) {
+                    e.printStackTrace();
+                }
+            }
+
+            if (startRecording)
+            {
+                if (audioRecord == null)
+                {
+                    prepareRecording();
+                    return;
+                }
+
+                if (!isRecording)
+                {
+                    audioRecord.startRecording();
+                }
+
+                isRecording = true;
+
+                startRecording = false;
+            }
+
             if (isRecording) {
 
-//                Log.d(TAG, "Recording");
                 audioRecord.read(buffer, 0, bufferSize);
 
                 try {
@@ -63,9 +133,10 @@ public class RecodedAndSendAudioStream extends Thread {
                     if (onRecordFailed != null)
                         onRecordFailed.onFailed();
                     else
+                    {
                         Log.e(TAG, "No record fail listener");
-
-                    e.printStackTrace();
+                        close();
+                    }
                 }
 
 /*Check for timeout in recording if other side stop            Log.d(TAG, "IsRecording!");
@@ -82,14 +153,27 @@ public class RecodedAndSendAudioStream extends Thread {
                 }*/
             }
 
+            if (stop)
+            {
+                Log.i(TAG, "Stoping recored!");
+                if (audioRecord != null)
+                    audioRecord.stop();
+
+                isRecording = false;
+
+                stop = false;
+            }
+
             if (close){
                 if (audioRecord != null && isRecording)
                 {
-                    isRecording= false;
                     audioRecord.stop();
                     audioRecord.release();
-                    audioRecord = null;
                 }
+
+                isRecording= false;
+                audioRecord = null;
+                interrupt();
             }
         }
     }
@@ -99,38 +183,20 @@ public class RecodedAndSendAudioStream extends Thread {
     }
 
     private void prepareRecording(){
-
-        try {
-            // Create a new AudioRecord object to record the audio.
-            bufferSize = AudioRecord.getMinBufferSize(FREQUENCY, CHANNEL_CONFIGURATION, AUDIO_ENCODING);
-            audioRecord = new AudioRecord(MediaRecorder.AudioSource.MIC, FREQUENCY, CHANNEL_CONFIGURATION, AUDIO_ENCODING, bufferSize);
-
-            buffer = new byte[bufferSize];
-
-        } catch (IllegalArgumentException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        } catch (IllegalStateException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        }
+        if (!isRecording)
+            prepare = true;
     }
 
     public void startRecord(){
-
-        if (audioRecord == null)
-            prepareRecording();
-
-        if (!isRecording)
-        {
-            audioRecord.startRecording();
-        }
-
-        isRecording = true;
+        startRecording = true;
     }
 
     public  void close(){
         close = true;
+    }
+
+    public void stopRecord() {
+        stop = true;
     }
 
     public interface OnRecordFailed{

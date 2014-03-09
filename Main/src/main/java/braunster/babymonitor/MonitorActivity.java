@@ -12,6 +12,9 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.graphics.Color;
+import android.graphics.Point;
+import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.TransitionDrawable;
 import android.media.RingtoneManager;
 import android.net.Uri;
@@ -19,6 +22,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
 import android.util.Log;
+import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -29,6 +33,9 @@ import android.view.animation.AnimationUtils;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
+import android.widget.PopupWindow;
+import android.widget.RadioButton;
+import android.widget.RadioGroup;
 import android.widget.RemoteViews;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -38,6 +45,7 @@ import java.util.List;
 import java.util.concurrent.ExecutionException;
 
 import TCP.ActionEventListener;
+import TCP.AudioStreamController;
 import TCP.ConnectionStateChangeListener;
 import TCP.CreateXmlAsyncTask;
 import TCP.IncomingDataListener;
@@ -101,38 +109,53 @@ public class MonitorActivity extends Activity {
         return super.onOptionsItemSelected(item);
     }
 
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+
+        app.terminateConnection();
+    }
+
     /**
      * A placeholder fragment containing a simple view.
      */
     public  static class PlaceholderFragment extends Fragment implements View.OnClickListener , ActionEventListener {
 
-        // TODO Handle WifiStatesListener
-        // TODO check if wifi disabling is closing the connection
-        // TODO create ALERT notification only if app is not showing
+        // TODO wifi disabling closing only one connctin and the other connection doesn't reckon it.
+        // TODO create ALERT notification only if app is not showing - Not Sure
         // TODO save a onSavedInstance obj to the bundle.
         // TODO check option for catching calls and messages received on the client(baby) device and forwarding them to the server(parents).
         // TODO create alert notification when connectionLost comes from the connection check?
-        // TODO fix port problem cant switch port after selectign one the prefs not changing
-        // TODO some UI delay when pressing the play/stop buttons
-        // TODO the edit text of the server data is still selectable when invisible need to be handled.
         // TODO the server and client buttons need to have disabled mode when the wifi is disabled
+        // TODO Explanation for first time user , setting connection
+        // TODO only show available frequency for the device to the user
 
         private final String TAG = PlaceholderFragment.class.getSimpleName();
 
         private static final String PREFS_SERVER_IP = "prefs.server.ip";
         private static final String PREFS_SERVER_PORT = "prefs.server.port";
+        private static final String PREFS_FIRST_LOGIN = "prefs.first_login";
+        private static final String PREFS_FIRST_CONNECTION = "prefs.first_connection";
+        private static final String PREFS_FIRST_SETTING = "prefs.first_setting";
+
 
         private static final int FADE_DURATION = 400, BACK_CHANGE_DURATION = 400;
+        private static final int[] DATA_SERVER_PORTS = {9481, 4672};
+        private static final int[] STREAM_SERVER_PORTS = {5489, 9714};
 
         /* Views*/
         private View rootView;
         private LinearLayout liServerClientBtn, liServerDataEt;
-        private Button btnServer, btnClient, btnDisconnect, btnPlayStop;
+        private Button btnServer, btnClient, btnDisconnect, btnPlayStop, btnInfo, btnSetting;
         private TextView txtIp, txtBatterLevel;
         private EditText etIp, etServerPort;
 
+        private PopupWindow settingPopUp, playStopPopUp, disconnectPopUp, serverDialog, clientDialog, infoDialog;
+
         //Keep the last level received of the battery
         int batteryPercentage = 0;
+
+        private Point screenSize = new Point();
 
         // Animation
         private Animation animFadeIn, animFadeOut;
@@ -144,6 +167,8 @@ public class MonitorActivity extends Activity {
         @Override
         public View onCreateView(LayoutInflater inflater, ViewGroup container,
                 Bundle savedInstanceState) {
+            getActivity().getWindowManager().getDefaultDisplay().getSize(screenSize);
+
             rootView = inflater.inflate(R.layout.fragment_monitor, container, false);
 
             animFadeIn = AnimationUtils.loadAnimation(getActivity(), R.animator.fade_in);
@@ -151,6 +176,9 @@ public class MonitorActivity extends Activity {
             animTrans = (TransitionDrawable) rootView.getBackground();
 
             viewsInit();
+
+            // For the wifi state listener
+            initStreamConnection();
 
             // If the application is connected set the activity layout in connection formation.
             if (app.getStreamConnection() != null && app.getStreamConnection().isConnected())
@@ -169,15 +197,11 @@ public class MonitorActivity extends Activity {
                 initDataConnection();
             }
 
+            setTxtIp();
+
             // Check for ip address and server port from the preferences
             etIp.setText(PreferenceManager.getDefaultSharedPreferences(getActivity()).getString(PREFS_SERVER_IP, ""));
             etServerPort.setText(PreferenceManager.getDefaultSharedPreferences(getActivity()).getString(PREFS_SERVER_PORT, ""));
-
-            if (txtIp != null)
-                if (app.getStreamConnection().isConnectedToWifiNetwork())
-                    txtIp.setText(app.getStreamConnection().getCurrentWifiIp());
-                else
-                    txtIp.setText("Not Connected To Wifi" );
 
             animTrans.setCrossFadeEnabled(true);
 
@@ -190,6 +214,21 @@ public class MonitorActivity extends Activity {
         @Override
         public void onResume() {
             super.onResume();
+
+            rootView.post(new Runnable() {
+                @Override
+                public void run() {
+                    firstLogin();
+                }
+            });
+
+            if (!app.getStreamConnection().isConnected())
+            {
+                btnSetting.setOnClickListener(this);
+            }
+
+            btnInfo.setOnClickListener(this);
+
             btnServer.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
@@ -205,23 +244,24 @@ public class MonitorActivity extends Activity {
                     {
                         if (app.getStreamConnection().isConnectedToWifiNetwork())
                         {
-                            if (!etServerPort.getText().toString().isEmpty())
+                            if (etServerPort.getText().toString().isEmpty())// For now don use ports
                             {
-                                PreferenceManager.getDefaultSharedPreferences(getActivity()).edit().putString(PREFS_SERVER_PORT,etServerPort.getText().toString()).commit();
-
                                 if (app.getStreamConnection().getConnectionStatus().equals(TCPConnection.DISCONNECTED) || app.getStreamConnection().getConnectionType() == TCPConnection.CLIENT)
                                 {
                                     initStreamConnection();
 
                                     initDataConnection();
 
-                                    app.getStreamConnection().start(Integer.parseInt(etServerPort.getText().toString()));
-
-                                    app.getDataConnection().start(Integer.parseInt(etServerPort.getText().toString()) + 1);
+//                                    app.getStreamConnection().start(Integer.parseInt(etServerPort.getText().toString()));
+                                    app.getStreamConnection().start(STREAM_SERVER_PORTS[0]);
+                                    // Making sure the picked port isnt the default data port
+                                    app.getDataConnection().start( etServerPort.getText().toString().equals( String.valueOf(DATA_SERVER_PORTS[0])) ? DATA_SERVER_PORTS[1] : DATA_SERVER_PORTS[0]) ;
 
                                     v.setSelected(true);
                                 }
                                 else Toast.makeText(getActivity(), "Server is already open", Toast.LENGTH_LONG).show();
+
+                                PreferenceManager.getDefaultSharedPreferences(getActivity()).edit().putString(PREFS_SERVER_PORT,etServerPort.getText().toString()).commit();
                             }
                             else
                                 Toast.makeText(getActivity(), "Please select a a port", Toast.LENGTH_LONG).show();
@@ -247,7 +287,7 @@ public class MonitorActivity extends Activity {
                     {
                         if (app.getStreamConnection().isConnectedToWifiNetwork())
                         {
-                            if (!etIp.getText().toString().isEmpty() && !etServerPort.getText().toString().isEmpty())
+                            if (!etIp.getText().toString().isEmpty() && etServerPort.getText().toString().isEmpty())// For now don't use ports
                             {
                                 if (app.getStreamConnection().getConnectionStatus().equals(TCPConnection.DISCONNECTED) || app.getStreamConnection().getConnectionType() == TCPConnection.SERVER)
                                 {
@@ -255,8 +295,9 @@ public class MonitorActivity extends Activity {
 
                                     initDataConnection();
 
-                                    app.getStreamConnection().start(etIp.getText().toString(), Integer.parseInt(etServerPort.getText().toString()));
-                                    app.getDataConnection().start(etIp.getText().toString(), Integer.parseInt(etServerPort.getText().toString()) + 1);
+//                                    app.getStreamConnection().start(etIp.getText().toString(), Integer.parseInt(etServerPort.getText().toString()));
+                                    app.getStreamConnection().start(etIp.getText().toString(), STREAM_SERVER_PORTS[0]);
+                                    app.getDataConnection().start(etIp.getText().toString(), etServerPort.getText().toString().equals( String.valueOf(DATA_SERVER_PORTS[0])) ? DATA_SERVER_PORTS[1] : DATA_SERVER_PORTS[0]) ;
 
                                     v.setSelected(true);
                                 }
@@ -299,6 +340,8 @@ public class MonitorActivity extends Activity {
             btnClient = (Button) rootView.findViewById(R.id.btn_start_client);
             btnDisconnect = (Button) rootView.findViewById(R.id.btn_disconnect);
             btnPlayStop = (Button) rootView.findViewById(R.id.btn_stop_play);
+            btnInfo = (Button ) rootView.findViewById(R.id.btn_info);
+            btnSetting = (Button) rootView.findViewById(R.id.btn_setting);
 
             // EditText - Server Data
             etIp = (EditText) rootView.findViewById(R.id.et_server_ip);
@@ -307,6 +350,7 @@ public class MonitorActivity extends Activity {
             // TextView - Phone Ip
             txtIp = (TextView) rootView.findViewById(R.id.txt_phone_ip);
             txtBatterLevel = (TextView) rootView.findViewById(R.id.txt_battery_level);
+
         }
 
         /** Initiate the connection obj, Apply listeners etc.*/
@@ -324,6 +368,7 @@ public class MonitorActivity extends Activity {
                     setToConnectedLayout();
 
                     createConnectedNotification(false);
+
                 }
 
                 @Override
@@ -333,7 +378,7 @@ public class MonitorActivity extends Activity {
 
                 @Override
                 public void onConnectionFailed(String issue) {
-                    Log.d(TAG, "Connection Failed");
+                    Log.d(TAG, "Connection Failed, Issue: " + issue);
                     btnClient.setSelected(false);
                     btnServer.setSelected(false);
 
@@ -341,6 +386,11 @@ public class MonitorActivity extends Activity {
                         Toast.makeText(getActivity(), "Please open select the parent phone first", Toast.LENGTH_LONG).show();
                     else if (issue.equals(TCPConnection.ISSUE_WIFI_TCP_SERVER_TIMEOUT))
                         Toast.makeText(getActivity(), "Timeout! You need to select the baby phone.", Toast.LENGTH_LONG).show();
+                    else if (issue.equals(TCPConnection.ISSUE_OPENING_A_SERVER))
+                    {
+                        Toast.makeText(getActivity(), "Please select a different port. Preferred from 2000 and above.", Toast.LENGTH_LONG).show();
+                        app.getStreamConnection().close();
+                    }
                 }
             });
 
@@ -362,21 +412,27 @@ public class MonitorActivity extends Activity {
                 @Override
                 public void onEnabled() {
                     Log.d(TAG, "onEnabled");
+                    setTxtIp();
                 }
 
                 @Override
                 public void onDisabled() {
                     Log.d(TAG, "onDisabled");
+                    setTxtIp();
+
+                    app.closeConnections();
                 }
 
                 @Override
                 public void onConnected(String networkName) {
-                    Log.d(TAG, "onConnected, Network Name: " + networkName);
+                    Log.d(TAG, " Wifi Listener onConnected, Network Name: " + networkName);
+                    setTxtIp();
                 }
 
                 @Override
                 public void onDisconnected() {
                     Log.d(TAG, "onDisconnected");
+                    setTxtIp();
                 }
             });
         }
@@ -402,6 +458,11 @@ public class MonitorActivity extends Activity {
                 @Override
                 public void onConnectionFailed(String issue) {
                     Log.d(TAG, "Data Connection  Failed");
+
+                    if (issue.equals(TCPConnection.ISSUE_OPENING_A_SERVER))
+                    {
+                        Toast.makeText(getActivity(), "Connection have a problem please select a different port and try again." , Toast.LENGTH_LONG).show();
+                    }
 //                    btnClient.setSelected(false);
 //                    btnServer.setSelected(false);
                 }
@@ -489,44 +550,51 @@ public class MonitorActivity extends Activity {
         }
 
         @Override
-        public void onClick(View v) {
+        public void onClick(final View v) {
 
             switch (v.getId())
             {
                 case R.id.btn_stop_play:
 
-                    if (app.getStreamConnection() != null && app.getStreamConnection().isConnected())
-                    {
-                        if (!v.isSelected())
-                        {
-                            if(app.getStreamConnection().getConnectionType() == TCPConnection.SERVER)
-                                if (app.getStreamConnection().getAudioController().play())
+                    v.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            if (app.getStreamConnection() != null && app.getStreamConnection().isConnected())
+                            {
+
+                                if (!v.isSelected())
                                 {
-                                    createConnectedNotification(true);
-                                    v.setSelected(!v.isSelected());
+                                    if(app.getStreamConnection().getConnectionType() == TCPConnection.SERVER)
+                                        if (app.getStreamConnection().getAudioController().play())
+                                        {
+                                            createConnectedNotification(true);
+                                            v.setSelected(!v.isSelected());
+                                        }
+                                        else Toast.makeText(getActivity(), "Cant Play!", Toast.LENGTH_LONG).show();
+                                    else
+                                    if (app.getStreamConnection().getRecordController().record())
+                                    {
+                                        createConnectedNotification(true);
+                                        v.setSelected(!v.isSelected());
+                                    }
+                                    else Toast.makeText(getActivity(), "Cant Record!", Toast.LENGTH_LONG).show();
                                 }
-                                else Toast.makeText(getActivity(), "Cant Play!", Toast.LENGTH_LONG).show();
-                            else
-                                if (app.getStreamConnection().getRecordController().record())
+                                else
                                 {
-                                    createConnectedNotification(true);
+                                    if(app.getStreamConnection().getConnectionType() == TCPConnection.SERVER)
+                                        app.getStreamConnection().getAudioController().stop();
+                                    else
+                                        app.getStreamConnection().getRecordController().stop();
+
+                                    createConnectedNotification(false);
+
                                     v.setSelected(!v.isSelected());
+
                                 }
-                                else Toast.makeText(getActivity(), "Cant Record!", Toast.LENGTH_LONG).show();
+                            }
                         }
-                        else
-                        {
-                            if(app.getStreamConnection().getConnectionType() == TCPConnection.SERVER)
-                                app.getStreamConnection().getAudioController().stop();
-                            else
-                                app.getStreamConnection().getRecordController().stop();
+                    });
 
-                            createConnectedNotification(false);
-
-                            v.setSelected(!v.isSelected());
-
-                        }
-                    }
 
                     break;
 
@@ -538,6 +606,36 @@ public class MonitorActivity extends Activity {
                         app.closeConnections();
 
                         setDisconnected();
+                    }
+                    break;
+
+                case R.id.btn_info:
+
+                    if (app.getStreamConnection().isConnected())
+                    {
+                        createWhenConnectedInfoPopup();
+                    }
+                    else
+                    {
+                        createHowToConnectPopup();
+                    }
+                    break;
+
+                case R.id.btn_setting:
+
+                    if (v.isSelected())
+                    {
+                        v.setSelected(false);
+
+                        if (settingPopUp != null && settingPopUp.isShowing())
+                            settingPopUp.dismiss();
+
+                    }
+                    else
+                    {
+                        v.setSelected(true);
+
+                        createSettingsPopup();
                     }
                     break;
             }
@@ -558,13 +656,218 @@ public class MonitorActivity extends Activity {
             }
         }
 
+        /*
+        * --- PopUps ----
+                           */
+        private void createSettingsPopup(){
+
+            settingPopUp = new PopupWindow(getActivity());
+
+            View v = getActivity().getLayoutInflater().inflate(R.layout.setting_popup_layout, null);
+
+            final RadioGroup radioGrp = (RadioGroup) v.findViewById(R.id.radio_grp_samples);
+            RadioButton radio;
+
+            // Showing the user all his available SampleRates
+            for ( int rate : AudioStreamController.getSupportedSampleRates())
+            {
+                radio = new RadioButton(getActivity());
+
+                if (rate == AudioStreamController.sampleRate)
+                    radio.setChecked(true);
+
+                radio.setText(String.valueOf(rate));
+                radio.setId(rate);
+                radioGrp.addView(radio);
+            }
+
+            radioGrp.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
+                @Override
+                public void onCheckedChanged(RadioGroup group, final int checkedId) {
+
+                    AudioStreamController.sampleRate = checkedId;
+
+                    // Small delay so the user will see what he picked.
+                    rootView.postDelayed(new Runnable() {
+                        @Override
+                        public void run() {
+                            settingPopUp.dismiss();
+                        }
+                    }, 300);
+                }
+            });
+
+            settingPopUp.setOnDismissListener(new PopupWindow.OnDismissListener() {
+                @Override
+                public void onDismiss() {
+
+                    // A small delay for animation and making sure the if user pressed the btnsettign again it would not show again.
+                    // The setSelected to false is the trick.
+                    rootView.postDelayed(new Runnable() {
+                        @Override
+                        public void run() {
+                            btnSetting.setSelected(false);
+
+                            showServerData();
+
+                            // If the info dialog is shown above the server data layout dont show the server and client buttons.
+                            if (infoDialog != null && infoDialog.isShowing() && infoDialog.isAboveAnchor())
+                                return;
+
+                            showServerClientButtons();
+                        }
+                    }, FADE_DURATION - 100);
+                }
+            });
+
+            settingPopUp.setContentView(v);
+            settingPopUp.setOutsideTouchable(true);
+            settingPopUp.setBackgroundDrawable(new BitmapDrawable());
+            settingPopUp.setWidth(v.getLayoutParams().WRAP_CONTENT);
+            settingPopUp.setHeight(v.getLayoutParams().WRAP_CONTENT);
+            settingPopUp.setAnimationStyle(R.style.PopupAnimation);
+
+            hideServerClientButtons();
+            hideServerData();
+
+            settingPopUp.showAsDropDown(btnSetting);
+
+        }
+
+        private void createWhenConnectedInfoPopup(){
+            View v = getActivity().getLayoutInflater().inflate(R.layout.info_popup_layout, null);
+
+            ((TextView)v.findViewById(R.id.txt)).setText("This is the disconnect button. There's about 5 seconds delay till the other phone get notified that you disconnected.");
+            ((TextView)v.findViewById(R.id.txt)).setGravity(Gravity.LEFT);
+            ((TextView)v.findViewById(R.id.txt)).setTextColor(Color.WHITE);
+
+            disconnectPopUp = new PopupWindow(getActivity());
+            disconnectPopUp.setContentView(v);
+            disconnectPopUp.setOutsideTouchable(true);
+            disconnectPopUp.setBackgroundDrawable(new BitmapDrawable());
+            disconnectPopUp.setWidth(screenSize.x);
+            disconnectPopUp.setHeight(v.getLayoutParams().WRAP_CONTENT);
+            disconnectPopUp.setAnimationStyle(R.style.PopupAnimation);
+            disconnectPopUp.showAsDropDown(btnDisconnect);
+
+            View v2 = getActivity().getLayoutInflater().inflate(R.layout.info_popup_layout, null);
+
+            ((TextView)v2.findViewById(R.id.txt)).setText("This is the Play/Stop Button.");
+            ((TextView)v2.findViewById(R.id.txt)).setGravity(Gravity.LEFT);
+            ((TextView)v2.findViewById(R.id.txt)).setTextColor(Color.WHITE);
+
+            playStopPopUp = new PopupWindow(getActivity());
+            playStopPopUp.setContentView(v2);
+            playStopPopUp.setOutsideTouchable(true);
+            playStopPopUp.setBackgroundDrawable(new BitmapDrawable());
+            playStopPopUp.setWidth(screenSize.x);
+            playStopPopUp.setHeight(v2.getLayoutParams().WRAP_CONTENT);
+            playStopPopUp.setAnimationStyle(R.style.PopupAnimation);
+            playStopPopUp.showAsDropDown(btnPlayStop);
+        }
+
+        private void createHowToConnectPopup(){
+            View v = getActivity().getLayoutInflater().inflate(R.layout.info_popup_layout, null);
+
+            ((TextView)v.findViewById(R.id.txt)).setText("Enter the ip address of the phone you want to place in the baby room." +
+                    " When the ip is set press on the 'Parent Button' in the phone you want to be near you, only then press on the 'Baby Button'. ");
+
+            ((TextView)v.findViewById(R.id.txt)).setGravity(Gravity.LEFT);
+            infoDialog = new PopupWindow(getActivity());
+            infoDialog.setContentView(v);
+            infoDialog.setOutsideTouchable(true);
+            infoDialog.setBackgroundDrawable(new BitmapDrawable());
+            infoDialog.setWidth(screenSize.x);
+            infoDialog.setHeight(v.getLayoutParams().WRAP_CONTENT);
+            infoDialog.setAnimationStyle(R.style.PopupAnimation);
+            infoDialog.showAsDropDown(etIp);
+
+            if (infoDialog.isAboveAnchor())
+            {
+                hideServerClientButtons();
+                infoDialog.setOnDismissListener(new PopupWindow.OnDismissListener() {
+                    @Override
+                    public void onDismiss() {
+                        showServerClientButtons();
+                    }
+                });
+
+                Log.d(TAG, "how to connect info is above the view");
+            }
+            else
+                createButtonAndIpInfoPopup();
+
+        }
+
+        private void createButtonAndIpInfoPopup(){
+
+            // Server popup
+            View v = getActivity().getLayoutInflater().inflate(R.layout.info_popup_layout, null);
+            ((TextView)v.findViewById(R.id.txt)).setText("Parent Button");
+            ((TextView)v.findViewById(R.id.txt)).setTextSize(15f);
+            serverDialog = new PopupWindow(getActivity());
+            serverDialog.setContentView(v);
+            serverDialog.setOutsideTouchable(true);
+            serverDialog.setBackgroundDrawable(new BitmapDrawable());
+            serverDialog.setWidth(btnServer.getWidth());
+            serverDialog.setHeight(v.getLayoutParams().WRAP_CONTENT);
+            serverDialog.setAnimationStyle(R.style.PopupAnimation);
+            serverDialog.showAsDropDown(btnServer);
+
+            // Client popup
+            View v2 = getActivity().getLayoutInflater().inflate(R.layout.info_popup_layout, null);
+            ((TextView)v2.findViewById(R.id.txt)).setText("Baby Button");
+            ((TextView)v2.findViewById(R.id.txt)).setTextSize(15f);
+            clientDialog = new PopupWindow(getActivity());
+            clientDialog.setContentView(v2);
+            clientDialog.setOutsideTouchable(true);
+            clientDialog.setBackgroundDrawable(new BitmapDrawable());
+            clientDialog.setWidth(btnClient.getWidth());
+            clientDialog.setHeight(v2.getLayoutParams().WRAP_CONTENT);
+            clientDialog.setAnimationStyle(R.style.PopupAnimation);
+            clientDialog.showAsDropDown(btnClient);
+
+            // Ip popup
+            View v3 = getActivity().getLayoutInflater().inflate(R.layout.info_popup_layout, null);
+            ((TextView)v3.findViewById(R.id.txt)).setTextSize(11f);
+            ((TextView)v3.findViewById(R.id.txt)).setText("Your phone Ip ->");
+            PopupWindow popupIp = new PopupWindow(getActivity());
+            popupIp.setContentView(v3);
+            popupIp.setOutsideTouchable(true);
+            popupIp.setBackgroundDrawable(new BitmapDrawable());
+            popupIp.setWidth(v3.getLayoutParams().WRAP_CONTENT);
+            popupIp.setHeight(v3.getLayoutParams().WRAP_CONTENT);
+            popupIp.setAnimationStyle(R.style.PopupAnimation);
+/*
+            int pos[] = new int[2];
+            txtIp.getLocationOnScreen(pos);
+            popupIp.showAtLocation(rootView, Gravity.NO_GRAVITY, 5, pos[1]);*/
+
+//            popupIp.showAsDropDown(txtIp);
+        }
+
+        private void setTxtIp(){
+            if (txtIp != null)
+                if (app.getStreamConnection().isConnectedToWifiNetwork())
+                    txtIp.setText(app.getStreamConnection().getCurrentWifiIp());
+                else
+                    txtIp.setText("Not Connected To Wifi" );
+        }
+
         /* Set the mode to of the app to disconnected.*/
         private void setDisconnected(){
+
+            if (playStopPopUp != null && playStopPopUp.isShowing())
+                playStopPopUp.dismiss();
+
+            if (disconnectPopUp != null && disconnectPopUp.isShowing())
+                disconnectPopUp.dismiss();
 
             setToDisconnectedLayout();
             cancelConnectionNotification();
         }
 
+        /* ----- Notifications ----*/
         @TargetApi(Build.VERSION_CODES.JELLY_BEAN)
         /** Create an ongoing notification that can terminate the connection or play/stop the sound directly from the notification drawer.*/
         private void createConnectedNotification(boolean isStreaming){
@@ -679,6 +982,9 @@ public class MonitorActivity extends Activity {
             mNotifyMgr.cancel(NOTIFICATION_CONNECTION_ID);
         }
 
+        /*
+        * ----- Layout ----
+                             */
         /** Change the mode of the layout to connected.*/
         private void setToConnectedLayout(){
 
@@ -687,6 +993,9 @@ public class MonitorActivity extends Activity {
             hideTxtIp();
             hideServerClientButtons();
             hideServerData();
+            hideSettingButton();
+
+            setInfoBtnMode(true);
 
             rootView.postDelayed(new Runnable() {
                 @Override
@@ -694,6 +1003,7 @@ public class MonitorActivity extends Activity {
                     showControlButtons();
                     showDisconnectButton();
                     showTxtBatteryLevel();
+                    firstConnection();
                 }
             }, FADE_DURATION - 100);
         }
@@ -706,18 +1016,22 @@ public class MonitorActivity extends Activity {
             hideDisconnectButton();
             hideTxtBatteryLevel();
 
+            setInfoBtnMode(false);
+
             rootView.postDelayed(new Runnable() {
                 @Override
                 public void run() {
                     showTxtIp();
                     showServerClientButtons();
                     showServerData();
+                    showSettingButton();
                 }
             }, FADE_DURATION - 100);
 
             btnPlayStop.setSelected(false);
         }
 
+        /* ----- Animation ----*/
         /* Fade in and Fade out given view*/
         private void  fadeViewIn(final View v){
 
@@ -755,6 +1069,7 @@ public class MonitorActivity extends Activity {
             }
         }
 
+        /* ----- Show/Hide Views ----*/
         /* The control buttons */
         private void showControlButtons(){
             fadeViewIn(btnPlayStop);
@@ -771,9 +1086,15 @@ public class MonitorActivity extends Activity {
             btnClient.setSelected(false);
             btnServer.setSelected(false);
             fadeViewIn(liServerDataEt);
+
+            etIp.setEnabled(true);
+            etServerPort.setEnabled(true);
         }
         private void hideServerData(){
             fadeViewOut(liServerDataEt);
+
+            etIp.setEnabled(false);
+            etServerPort.setEnabled(false);
         }
 
         /* Disconnect Button*/
@@ -791,9 +1112,15 @@ public class MonitorActivity extends Activity {
         /*Server And Client Buttons*/
         private void showServerClientButtons(){
             fadeViewIn(liServerClientBtn);
+
+            btnClient.setEnabled(true);
+            btnServer.setEnabled(true);
         }
         private void hideServerClientButtons(){
             fadeViewOut(liServerClientBtn);
+
+            btnClient.setEnabled(false);
+            btnServer.setEnabled(false);
         }
 
         /* Ip address of the phone*/
@@ -842,6 +1169,81 @@ public class MonitorActivity extends Activity {
             txtBatterLevel.setOnClickListener(null);
         }
 
+        /* Setting Button*/
+        private void showSettingButton(){
+            fadeViewIn(btnSetting);
+            btnSetting.setOnClickListener(this);
+        }
+
+        private void hideSettingButton(){
+            fadeViewOut(btnSetting);
+            btnSetting.setOnClickListener(null);
+        }
+
+        /* Info Button*/
+        private void setInfoBtnMode(final boolean connected){
+
+            if (btnInfo.getTag().equals(R.string.connected) && connected || btnInfo.getTag().equals(R.string.disconnect) && !connected  )
+                return;
+
+            fadeViewOut(btnInfo);
+
+            rootView.postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    if (connected)
+                    {
+                        btnInfo.setBackgroundResource(android.R.color.transparent);
+                        btnInfo.setText("I");
+                        btnInfo.setTextColor(Color.WHITE);
+                        btnInfo.setTag(R.string.connected);
+                    }
+                    else
+                    {
+                        btnInfo.setBackgroundResource(R.drawable.info_btn_selector);
+                        btnInfo.setText("");
+                        btnInfo.setTag(R.string.disconnect);
+                    }
+                }
+            }, FADE_DURATION - FADE_DURATION/2);
+
+            rootView.postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    fadeViewIn(btnInfo);
+                }
+            }, FADE_DURATION - 100);
+        }
+
+
+        /*--- First Cases ---*/
+        private void firstLogin(){
+
+            if (PreferenceManager.getDefaultSharedPreferences(getActivity()).getBoolean(PREFS_FIRST_LOGIN, true))
+            {
+                PreferenceManager.getDefaultSharedPreferences(getActivity()).edit().putBoolean(PREFS_FIRST_LOGIN, false).commit();
+
+                createHowToConnectPopup();
+            }
+        }
+
+        private void firstConnection(){
+            if (PreferenceManager.getDefaultSharedPreferences(getActivity()).getBoolean(PREFS_FIRST_CONNECTION, true))
+            {
+                PreferenceManager.getDefaultSharedPreferences(getActivity()).edit().putBoolean(PREFS_FIRST_CONNECTION, false).commit();
+
+                createWhenConnectedInfoPopup();
+            }
+        }
+
+        private void firstSetting(){
+            if (PreferenceManager.getDefaultSharedPreferences(getActivity()).getBoolean(PREFS_FIRST_SETTING , true))
+            {
+                PreferenceManager.getDefaultSharedPreferences(getActivity()).edit().putBoolean(PREFS_FIRST_SETTING, false).commit();
+            }
+        }
+
+        /* ----- Battery Change receiver ----*/
         private BroadcastReceiver mBatInfoReceiver = new BroadcastReceiver(){
             @Override
             public void onReceive(Context context, Intent intent) {
@@ -916,24 +1318,3 @@ public class MonitorActivity extends Activity {
 
     }
 }
-//        private void colorChange(){
-////            //animate from your current color to red
-////            final ValueAnimator anim = ValueAnimator.ofInt(Color.parseColor("#FFFFFF"), Color.parseColor("#000000"));
-////            anim.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
-////                @Override
-////                public void onAnimationUpdate(ValueAnimator animation) {
-////                    rootView.setBackgroundColor( () anim.getAnimatedValue());
-////                }
-////            });
-////
-////            anim.start();
-//
-//
-//            ColorDrawable layers[] = new ColorDrawable[2];
-//            layers[0] = new ColorDrawable(0xff0000ff);
-//            layers[1] = new ColorDrawable(0xffff0000);
-//            ColorTransaction colorTransaction = new ColorTransaction(layers);
-//            rootView.setBackgroundDrawable(colorTransaction);
-//
-//            colorTransaction.changeColor(0xff00ff00);
-//        }

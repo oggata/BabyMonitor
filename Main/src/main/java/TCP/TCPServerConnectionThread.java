@@ -43,12 +43,7 @@ public class TCPServerConnectionThread extends Thread{
         Log.i(TAG, "Starting Connection Thread As Server");
         this.serverPort = serverPort;
 
-        try {
-            serverSocket = new ServerSocket(serverPort);
-            accept = true;
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        accept = true;
     }
 
     @Override
@@ -105,51 +100,61 @@ public class TCPServerConnectionThread extends Thread{
     // Host Connection
     private void accept(){
 
-        if (serverSocket != null)
+
+
+        if (serverSocket == null)
         {
             try {
-
-                Log.i(TAG, "Waiting for client...");
-
-                serverSocket.setSoTimeout(SERVER_SO_TIMEOUT);
-
-                socket = serverSocket.accept();
-
-                if (socket.isConnected())
-                {
-                    Log.i(TAG, "Connected.");
-
-                    // TODO check with and without
-                    socket.setTcpNoDelay(false);
-
-                    if (!close)
-                    {
-                        successMsg();
-
-                        serverSocketMsg();
-                    }
-                    else
-                    {
-                        Log.i(TAG, "Server was closed while accepting");
-
-                        try {
-                            socket.close();
-                        }
-                        catch (IOException e){}
-                    }
-
-                }
-
-            }
-            catch (SocketException e){}
-            catch (IOException e) {
-
-                failMsg(TCPConnection.ERROR_ACCEPTATION_TIMEOUT);
-
+                serverSocket = new ServerSocket(serverPort);
+            } catch (IOException e) {
                 e.printStackTrace();
+                failMsg(TCPConnection.ERROR_CANT_OPEN_SERVER);
+                accept = false;
+                return;
             }
         }
 
+        try {
+
+            Log.i(TAG, "Waiting for client...");
+
+            serverSocket.setSoTimeout(SERVER_SO_TIMEOUT);
+
+            socket = serverSocket.accept();
+
+            if (socket.isConnected())
+            {
+                Log.i(TAG, "Connected.");
+
+                // TODO check with and without
+                socket.setTcpNoDelay(false);
+
+                if (!close)
+                {
+                    successMsg();
+
+                    serverSocketMsg();
+                }
+                else
+                {
+                    Log.i(TAG, "Server was closed while accepting");
+
+                    try {
+                        socket.close();
+                    }
+                    catch (IOException e){}
+                }
+
+            }
+
+        }
+        catch (SocketException e){}
+        catch (IOException e) {
+
+            failMsg(TCPConnection.ERROR_ACCEPTATION_TIMEOUT);
+
+            e.printStackTrace();
+        }
 
         accept = false;
     }

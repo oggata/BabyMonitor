@@ -37,12 +37,13 @@ class LoadAndPlayAudioStream extends Thread {
     public LoadAndPlayAudioStream(InputStream inputStream){
         this.inStream = inputStream;
 
-        sampleRate = AudioStreamPlayer.SAMPLE_44100; //  Default
+        sampleRate = AudioStreamPlayer.SAMPLE_8000; //  Default
     }
 
     public LoadAndPlayAudioStream(InputStream inputStream, int sampleRate){
         this.inStream = inputStream;
         this.sampleRate = sampleRate;
+        Log.d(TAG, "Sample Rate: " + sampleRate);
     }
 
     @Override
@@ -93,7 +94,7 @@ class LoadAndPlayAudioStream extends Thread {
                                 player.setMarker(fileSize);
                             } catch (InterruptedException e) {
                                 e.printStackTrace();
-                            }
+                            }catch (NullPointerException e){Log.e(TAG, "player is null");}
                         }
                         else
                             player.write(bytesFromStream);

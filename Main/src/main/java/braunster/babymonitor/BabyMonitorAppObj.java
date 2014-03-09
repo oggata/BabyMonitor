@@ -37,4 +37,9 @@ public class BabyMonitorAppObj extends Application {
         streamConnection.close();
         dataConnection.close();
     }
+
+    public void terminateConnection(){
+        streamConnection.Terminate();
+        dataConnection.Terminate();
+    }
 }
