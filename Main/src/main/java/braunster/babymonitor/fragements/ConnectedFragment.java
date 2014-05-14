@@ -1,20 +1,26 @@
 package braunster.babymonitor.fragements;
 
+import android.database.Cursor;
 import android.graphics.Color;
 import android.graphics.drawable.BitmapDrawable;
+import android.net.Uri;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
+import android.provider.ContactsContract;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.PopupWindow;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import TCP.connrction_and_threads.TCPConnection;
+import TCP.objects.TList;
+import TCP.xml.objects.XmlAttr;
 import braunster.babymonitor.BabyMonitorAppObj;
 import braunster.babymonitor.ConnectedPhoneData;
 import braunster.babymonitor.MonitorActivity;
@@ -224,10 +230,51 @@ public class ConnectedFragment extends BaseFragment implements View.OnClickListe
         playStopPopUp.showAsDropDown(btnPlayStop);
     }
 
-    private void createIncomingDataPopup(String contactName, String contactNumber, String text){
+    private void createIncomingDataPopup(String contactName, final String contactNumber, final String text){
+//        if (getActivity().getLayoutInflater() != null) { if (DEBUG) Log.e(TAG, "layout inflater is null"); return; }
         View v = getActivity().getLayoutInflater().inflate(R.layout.popup_incoming_call, null);
 
+//        if (v == null) { if (DEBUG) Log.e(TAG, "view is null"); return; }
+
         ((TextView)v.findViewById(R.id.txt_caller_name)).setText(contactName + " - " + contactNumber);
+
+        final EditText smsInput = ((EditText)v.findViewById(R.id.et_reply_text));
+        if (smsInput == null) { if (DEBUG) Log.e(TAG, "sms input is null"); return; }
+
+        v.findViewById(R.id.btn_reply).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (DEBUG) Log.d(TAG, "Reply! ");
+                String data = smsInput.getText().toString();
+                if (!data.matches(""))
+                {
+                    if (DEBUG) Log.d(TAG, "Data: " + data);
+                    // Send the sms text back to the connected phone.
+                    ((MonitorActivity)getActivity()).sendDataXml(MonitorActivity.XML_TAG_SMS, data, new TList<XmlAttr>(
+                            new XmlAttr(MonitorActivity.XML_ATTRIBUTE_TODO, MonitorActivity.SEND),
+                            new XmlAttr(MonitorActivity.XML_ATTRIBUTE_CALLER_CONTACT_NAME, getContactNameForNumber(contactNumber)),
+                            new XmlAttr(MonitorActivity.XML_ATTRIBUTE_PHONE_NUMBER, contactNumber)));
+
+                    if (incomingDataPopup.isShowing())
+                        incomingDataPopup.dismiss();
+                }
+            }
+        });
+
+        v.findViewById(R.id.btn_call).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                // TODO call this number
+            }
+        });
+
+        v.findViewById(R.id.btn_dismiss).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (incomingDataPopup.isShowing())
+                    incomingDataPopup.dismiss();
+            }
+        });
 
         if (text != null)
         {
@@ -237,6 +284,7 @@ public class ConnectedFragment extends BaseFragment implements View.OnClickListe
 
         incomingDataPopup = new PopupWindow(getActivity());
         incomingDataPopup.setContentView(v);
+        incomingDataPopup.setFocusable(true);
         incomingDataPopup.setOutsideTouchable(true);
         incomingDataPopup.setBackgroundDrawable(new BitmapDrawable());
         incomingDataPopup.setWidth(screenSize.x);
@@ -252,5 +300,15 @@ public class ConnectedFragment extends BaseFragment implements View.OnClickListe
 
             createWhenConnectedInfoPopup();
         }
+    }
+
+    String getContactNameForNumber(String incomingNumber) {
+        Uri uri = Uri.withAppendedPath(ContactsContract.PhoneLookup.CONTENT_FILTER_URI, Uri.encode(incomingNumber));
+        Cursor cursor = getActivity().getContentResolver().query(uri, new String[]{ContactsContract.PhoneLookup.DISPLAY_NAME}, null, null, null);
+
+        if (cursor.moveToFirst()) {
+            return cursor.getString(cursor.getColumnIndex(ContactsContract.PhoneLookup.DISPLAY_NAME));
+        }
+        return "Unknown";
     }
 }

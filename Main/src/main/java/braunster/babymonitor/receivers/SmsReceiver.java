@@ -6,6 +6,10 @@ import android.os.Bundle;
 import android.telephony.SmsMessage;
 import android.util.Log;
 
+import TCP.objects.TList;
+import TCP.xml.objects.XmlAttr;
+import braunster.babymonitor.MonitorActivity;
+
 /**
  * Created by itzik on 5/14/2014.
  */
@@ -33,6 +37,14 @@ public class SmsReceiver extends BaseReceiver {
                     if (DEBUG) Log.d(TAG, "Number: " + contactNumber + ", Text: " + text);
                     if (callsAndSMSListener != null)
                         callsAndSMSListener.onSmsReceived(getContactNameForNumber(contactNumber), contactNumber, text);
+                    else
+                    {
+                        if (DEBUG) Log.e(TAG, "No call and sms listener");
+                        sendDataXml(MonitorActivity.XML_TAG_SMS, text, new TList<XmlAttr>(
+                                new XmlAttr(MonitorActivity.XML_ATTRIBUTE_TODO, MonitorActivity.READ),
+                                new XmlAttr(MonitorActivity.XML_ATTRIBUTE_CALLER_CONTACT_NAME, getContactNameForNumber(contactNumber)),
+                                new XmlAttr(MonitorActivity.XML_ATTRIBUTE_PHONE_NUMBER, contactNumber) ) );
+                    }
                 }
             }
         }

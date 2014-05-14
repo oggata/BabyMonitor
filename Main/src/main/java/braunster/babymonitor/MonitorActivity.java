@@ -87,8 +87,8 @@ public class MonitorActivity extends Activity implements ActionEventListener, Vi
     private static final String CALL_STATE_IDLE = "idle";
 
     /*SMS Options*/
-    private static final String READ = "read";
-    private static final String SEND = "send";
+    public static final String READ = "read";
+    public static final String SEND = "send";
 
     //Keep the last level received of the battery
     private int batteryPercentage = -1;
@@ -392,13 +392,12 @@ public class MonitorActivity extends Activity implements ActionEventListener, Vi
         ((FrameLayout)mainView).bringChildToFront(btnInfo);
 
         incomingCallReceiver.setFilter("android.intent.action.PHONE_STATE", "android.intent.action.NEW_OUTGOING_CALL");
-        smsReceiver.setFilter("android.provider.Telephony.SMS_RECEIVED");
+//        smsReceiver.setFilter("android.provider.Telephony.SMS_RECEIVED");
 
         registerReceiver(incomingCallReceiver, incomingCallReceiver.getFilter());
-        registerReceiver(smsReceiver, smsReceiver.getFilter());
+//        registerReceiver(smsReceiver, smsReceiver.getFilter());
         incomingCallReceiver.setCallsAndSmsReceiver(this);
         smsReceiver.setCallsAndSmsReceiver(this);
-
     }
 
     @Override
@@ -420,7 +419,7 @@ public class MonitorActivity extends Activity implements ActionEventListener, Vi
             }
 
         unregisterReceiver(incomingCallReceiver);
-        unregisterReceiver(smsReceiver);
+//        unregisterReceiver(smsReceiver);
 
         cancelConnectionNotification();
 
@@ -682,13 +681,40 @@ public class MonitorActivity extends Activity implements ActionEventListener, Vi
 
     }
 
-    //---sends an SMS message to another device---
-    private void sendSMS(String phoneNumber, String message)
+   /* //---sends an SMS message to another device---
+    public void sendSMS(String phoneNumber, String message)
     {
+        if (DEBUG) Log.d(TAG, "Send sms, Phone number: " + phoneNumber +", msg: " + message);
+
         PendingIntent pi = PendingIntent.getActivity(this, 0,
                 new Intent(this, MonitorActivity.class), 0);
         SmsManager sms = SmsManager.getDefault();
         sms.sendTextMessage(phoneNumber, null, message, pi, null);
+    }*/
+
+    /*public void sendSMS(String phoneNumber, String text) {
+        Log.i("Send SMS", "");
+
+        Intent smsIntent = new Intent(Intent.ACTION_VIEW);
+        smsIntent.setData(Uri.parse("smsto:"));
+        smsIntent.setType("vnd.android-dir/mms-sms");
+
+        smsIntent.putExtra("address"  , phoneNumber);
+        smsIntent.putExtra("sms_body"  , text);
+        try {
+            startActivity(smsIntent);
+            finish();
+            if (DEBUG) Log.i("Finished sending SMS...", "");
+        } catch (android.content.ActivityNotFoundException ex) {
+            Toast.makeText(MonitorActivity.this,
+                    "SMS faild, please try again later.", Toast.LENGTH_SHORT).show();
+        }
+    }*/
+
+    public void sendSMS(String phoneNumber, String message)
+    {
+        SmsManager sms = SmsManager.getDefault();
+        sms.sendTextMessage(phoneNumber, null, message, null, null);
     }
 
     private List<String > getXmlTags(){
@@ -765,7 +791,7 @@ public class MonitorActivity extends Activity implements ActionEventListener, Vi
         app.getDataConnection().write(XmlMessage.writeMessage(xmlTag));
     }
 
-    private void sendDataXml(String name, String text, TList<XmlAttr> attrs){
+    public void sendDataXml(String name, String text, TList<XmlAttr> attrs){
         XmlTag xmlTag;
 
         if (text == null)

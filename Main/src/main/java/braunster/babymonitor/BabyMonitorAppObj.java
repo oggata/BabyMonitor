@@ -13,9 +13,12 @@ public class BabyMonitorAppObj extends Application {
 
     private final static String APIKEY = "a5522b00";
 
+    private static BabyMonitorAppObj instance;
+
     @Override
     public void onCreate() {
         super.onCreate();
+        instance = this;
 
 //        BugSenseHandler.initAndStartSession(getApplicationContext(), APIKEY);
 
@@ -25,6 +28,11 @@ public class BabyMonitorAppObj extends Application {
         dataConnection.setTextTag("DATA");
         streamConnection.setTextTag("STREAM");
 
+
+    }
+
+    public static BabyMonitorAppObj getInstance() {
+        return instance;
     }
 
     public TCPConnection getStreamConnection() {

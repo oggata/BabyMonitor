@@ -9,6 +9,12 @@ import android.net.Uri;
 import android.provider.ContactsContract;
 import android.util.Log;
 
+import TCP.objects.TList;
+import TCP.xml.objects.XmlAttr;
+import TCP.xml.objects.XmlMessage;
+import TCP.xml.objects.XmlTag;
+import braunster.babymonitor.BabyMonitorAppObj;
+
 /**
  * Created by itzik on 5/14/2014.
  */
@@ -16,7 +22,7 @@ public class BaseReceiver extends BroadcastReceiver {
 
     private static final String TAG = BaseReceiver.class.getSimpleName();
     private static final boolean DEBUG = true;
-
+    private BabyMonitorAppObj app = BabyMonitorAppObj.getInstance();
     Context context;
     IntentFilter filter;
     Intent intent;
@@ -63,5 +69,17 @@ public class BaseReceiver extends BroadcastReceiver {
 
     public void setCallsAndSmsReceiver(CallsAndSMSListener callsAndSMSListener) {
         this.callsAndSMSListener = callsAndSMSListener;
+    }
+
+    void sendDataXml(String name, String text, TList<XmlAttr> attrs){
+        XmlTag xmlTag;
+
+        if (text == null)
+            xmlTag  = XmlTag.getTag(name, attrs);
+        else xmlTag = XmlTag.getTag(name, text, attrs);
+
+        Log.d(TAG, "Attr Amount: " + xmlTag.getAttributes().size() + ", Name: "  + xmlTag.getAttributes().get(0).getName() + xmlTag.getAttributes().get(0).getIndex());
+
+        app.getDataConnection().write(XmlMessage.writeMessage(xmlTag));
     }
 }
