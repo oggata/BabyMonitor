@@ -67,49 +67,6 @@
 
             </LinearLayout>
 
-        <Button
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:background="@drawable/disconnect_btn_selector"
-            android:id="@+id/btn_disconnect"
-            android:visibility="invisible"
-            android:layout_centerHorizontal="true"
-            android:layout_below="@+id/txt"/>
-
-        <Button
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:background="@drawable/play_stop_btn_selector"
-            android:id="@+id/btn_stop_play"
-            android:layout_alignParentBottom="true"
-            android:layout_centerHorizontal="true"
-            android:visibility="invisible"
-            android:layout_weight="1"
-            android:paddingBottom="20dp"/>
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Connected Phone Battery"
-            android:textColor="@color/white"
-            android:id="@+id/txt_battery_level"
-            android:textStyle="bold"
-            android:layout_alignParentTop="true"
-            android:layout_alignParentLeft="true"
-            android:layout_alignParentStart="true"
-            android:typeface="monospace"
-            android:visibility="invisible"/>
-
-        <Button
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:id="@+id/btn_info"
-            android:layout_gravity="right"
-            android:background="@drawable/info_btn_selector"
-            android:padding="10dp"
-            android:layout_alignParentTop="true"
-            android:layout_toRightOf="@+id/btn_setting"
-            android:tag="@string/disconnect"/>
 
         <Button
             android:layout_width="48dp"

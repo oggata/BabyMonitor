@@ -13,7 +13,7 @@ import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
 
-import TCP.XMLParser;
+import TCP.archive.XMLParser;
 
 /**
  * Created by itzik on 2/25/14.

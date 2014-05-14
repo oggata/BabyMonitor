@@ -2,9 +2,7 @@ package braunster.babymonitor;
 
 import android.app.Application;
 
-import com.bugsense.trace.BugSenseHandler;
-
-import TCP.TCPConnection;
+import TCP.connrction_and_threads.TCPConnection;
 
 /**
  * Created by itzik on 2/23/14.
@@ -19,10 +17,14 @@ public class BabyMonitorAppObj extends Application {
     public void onCreate() {
         super.onCreate();
 
-        BugSenseHandler.initAndStartSession(getApplicationContext(), APIKEY);
+//        BugSenseHandler.initAndStartSession(getApplicationContext(), APIKEY);
 
         streamConnection = new TCPConnection(getApplicationContext());
         dataConnection = new TCPConnection(getApplicationContext());
+
+        dataConnection.setTextTag("DATA");
+        streamConnection.setTextTag("STREAM");
+
     }
 
     public TCPConnection getStreamConnection() {

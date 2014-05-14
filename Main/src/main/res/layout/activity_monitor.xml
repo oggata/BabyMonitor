@@ -4,4 +4,17 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     tools:context="braunster.babymonitor.MonitorActivity"
-    tools:ignore="MergeRootFrame" />
+    tools:ignore="MergeRootFrame" >
+
+
+    <Button
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:id="@+id/btn_info"
+        android:layout_gravity="right"
+        android:background="@drawable/info_btn_selector"
+        android:padding="10dp"
+        android:tag="@string/disconnect"
+        android:layout_margin="10dp"/>
+
+    </FrameLayout>
