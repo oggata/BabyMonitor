@@ -439,6 +439,10 @@ public class TCPConnection {
         return connectionStatus.equals(CONNECTED);
     }
 
+    public synchronized boolean isServer(){
+        return connectionType == SERVER;
+    }
+
     public void addFlag(int flag){
         flags.put(flag, true);
     }

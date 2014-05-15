@@ -1,16 +1,13 @@
 package braunster.babymonitor.receivers;
 
-import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.telephony.PhoneStateListener;
-import android.telephony.SmsManager;
 import android.telephony.TelephonyManager;
 import android.util.Log;
-import android.widget.Toast;
 
 public class IncomingCallReceiver extends BaseReceiver {
-
+//TODO change to a service
     private static final String TAG = IncomingCallReceiver.class.getSimpleName();
     private static final boolean DEBUG = true;
 
@@ -28,7 +25,7 @@ public class IncomingCallReceiver extends BaseReceiver {
         super.onReceive(context, intent);
         if (DEBUG) Log.d(TAG, "onReceived");
 
-        switch (getResultCode())
+        /*switch (getResultCode())
         {
             case SmsManager.RESULT_ERROR_GENERIC_FAILURE:
                 Toast.makeText(context, "Generic failure",
@@ -54,7 +51,7 @@ public class IncomingCallReceiver extends BaseReceiver {
                 Toast.makeText(context, "SMS not delivered",
                         Toast.LENGTH_SHORT).show();
                 break;
-        }
+        }*/
 
         context = context;
         intent = intent;
@@ -76,7 +73,6 @@ public class IncomingCallReceiver extends BaseReceiver {
                     callState = IDLE;
                     break;
                 case TelephonyManager.CALL_STATE_RINGING:
-                    Toast.makeText(context, "Local Call - " + incomingNumber, Toast.LENGTH_LONG).show();
 
                     if (callState == IDLE)
                         if (callsAndSMSListener != null) callsAndSMSListener.onStartRinging(getContactNameForNumber(incomingNumber), incomingNumber);

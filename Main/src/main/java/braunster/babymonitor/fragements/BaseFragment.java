@@ -34,6 +34,15 @@ public class BaseFragment extends Fragment implements BaseFragmentInterface {
     }
 
     @Override
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+
+        if (getActivity() != null)
+            app = (BabyMonitorAppObj) getActivity().getApplication();
+        else app = BabyMonitorAppObj.getInstance();
+    }
+
+    @Override
     public void onInfoPressed() {
 
     }

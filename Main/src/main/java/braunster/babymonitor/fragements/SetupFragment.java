@@ -4,7 +4,6 @@ import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.graphics.drawable.BitmapDrawable;
 import android.os.Bundle;
-import android.preference.PreferenceManager;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.LayoutInflater;
@@ -22,7 +21,6 @@ import android.widget.Toast;
 import TCP.connrction_and_threads.AudioStreamController;
 import TCP.connrction_and_threads.TCPConnection;
 import TCP.interfaces.WifiStatesListener;
-import braunster.babymonitor.BabyMonitorAppObj;
 import braunster.babymonitor.R;
 
 /**
@@ -70,8 +68,6 @@ public  class SetupFragment extends BaseFragment implements View.OnClickListener
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
 
-        app = (BabyMonitorAppObj) getActivity().getApplication();
-
         mainView = inflater.inflate(R.layout.fragment_monitor, container, false);
 
         viewsInit();
@@ -79,11 +75,11 @@ public  class SetupFragment extends BaseFragment implements View.OnClickListener
         setTxtIp();
 
         // Set the sample rate to the one saved on the preference manager
-        AudioStreamController.sampleRate = PreferenceManager.getDefaultSharedPreferences(getActivity()).getInt(PREFS_SAMPLE_RATE, 8000);
+        AudioStreamController.sampleRate = app.prefs.getInt(PREFS_SAMPLE_RATE, 8000);
 
         // Check for ip address and server port from the preferences
-        etIp.setText(PreferenceManager.getDefaultSharedPreferences(getActivity()).getString(PREFS_SERVER_IP, ""));
-        etServerPort.setText(PreferenceManager.getDefaultSharedPreferences(getActivity()).getString(PREFS_SERVER_PORT, ""));
+        etIp.setText(app.prefs.getString(PREFS_SERVER_IP, ""));
+        etServerPort.setText(app.prefs.getString(PREFS_SERVER_PORT, ""));
 
         return mainView;
     }
@@ -157,7 +153,7 @@ public  class SetupFragment extends BaseFragment implements View.OnClickListener
                             }
                             else Toast.makeText(getActivity(), "Server is already open", Toast.LENGTH_LONG).show();
 
-                            PreferenceManager.getDefaultSharedPreferences(getActivity()).edit().putString(PREFS_SERVER_PORT,etServerPort.getText().toString()).commit();
+                            app.prefs.edit().putString(PREFS_SERVER_PORT,etServerPort.getText().toString()).commit();
                         }
                         else
                             Toast.makeText(getActivity(), "Please select a a port", Toast.LENGTH_LONG).show();
@@ -193,8 +189,8 @@ public  class SetupFragment extends BaseFragment implements View.OnClickListener
                                 v.setSelected(true);
                             }
 
-                            PreferenceManager.getDefaultSharedPreferences(getActivity()).edit().putString(PREFS_SERVER_IP,etIp.getText().toString()).commit();
-                            PreferenceManager.getDefaultSharedPreferences(getActivity()).edit().putString(PREFS_SERVER_PORT,etServerPort.getText().toString()).commit();
+                            app.prefs.edit().putString(PREFS_SERVER_IP,etIp.getText().toString()).commit();
+                            app.prefs.edit().putString(PREFS_SERVER_PORT,etServerPort.getText().toString()).commit();
                         }
                         else
                             Toast.makeText(getActivity(), "Please enter the ip address and the selected port of the server", Toast.LENGTH_LONG).show();
@@ -290,7 +286,7 @@ public  class SetupFragment extends BaseFragment implements View.OnClickListener
 
                 AudioStreamController.sampleRate = checkedId;
 
-                PreferenceManager.getDefaultSharedPreferences(getActivity()).edit().putInt(PREFS_SAMPLE_RATE, checkedId).commit();
+                app.prefs.edit().putInt(PREFS_SAMPLE_RATE, checkedId).commit();
 
                 // Small delay so the user will see what he picked.
                 mainView.postDelayed(new Runnable() {
@@ -488,18 +484,18 @@ public  class SetupFragment extends BaseFragment implements View.OnClickListener
     /*--- First Cases ---*/
     private void firstLogin(){
 
-        if (PreferenceManager.getDefaultSharedPreferences(getActivity()).getBoolean(PREFS_FIRST_LOGIN, true))
+        if (app.prefs.getBoolean(PREFS_FIRST_LOGIN, true))
         {
-            PreferenceManager.getDefaultSharedPreferences(getActivity()).edit().putBoolean(PREFS_FIRST_LOGIN, false).commit();
+            app.prefs.edit().putBoolean(PREFS_FIRST_LOGIN, false).commit();
 
             createHowToConnectPopup();
         }
     }
 
     private void firstSetting(){
-        if (PreferenceManager.getDefaultSharedPreferences(getActivity()).getBoolean(PREFS_FIRST_SETTING , true))
+        if (app.prefs.getBoolean(PREFS_FIRST_SETTING, true))
         {
-            PreferenceManager.getDefaultSharedPreferences(getActivity()).edit().putBoolean(PREFS_FIRST_SETTING, false).commit();
+            app.prefs.edit().putBoolean(PREFS_FIRST_SETTING, false).commit();
         }
     }
 

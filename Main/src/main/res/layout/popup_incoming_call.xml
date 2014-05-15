@@ -3,7 +3,7 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:orientation="vertical" android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/white">
+    android:background="@drawable/background_transition">
 
     <TextView
         android:layout_width="wrap_content"
@@ -29,37 +29,39 @@
         android:layout_height="0dp"
         android:inputType="textMultiLine"
         android:ems="10"
+        android:maxLength="100"
         android:id="@+id/et_reply_text"
         android:layout_weight="1"
         android:layout_gravity="center_horizontal" />
 
     <LinearLayout
         android:orientation="horizontal"
-        android:layout_width="match_parent"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="center_horizontal"
         android:padding="20dp">
 
         <Button
-            android:layout_width="0dp"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Reply With SMS"
-            android:id="@+id/btn_reply"
-            android:layout_weight="1"/>
+            android:background="@drawable/reply_button_selector"
+            android:layout_marginLeft="10dp"
+            android:id="@+id/btn_reply"/>
 
         <Button
-            android:layout_width="0dp"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Call"
-            android:id="@+id/btn_call"
-            android:layout_weight="1"/>
+            android:background="@drawable/call_button_selector"
+            android:layout_marginLeft="10dp"
+            android:id="@+id/btn_call"/>
 
         <Button
-            android:layout_width="0dp"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Dismiss"
-            android:id="@+id/btn_dismiss"
-            android:layout_weight="1"/>
+            android:background="@drawable/dismiss_button_selector"
+            android:layout_marginLeft="10dp"
+            android:layout_marginRight="10dp"
+            android:id="@+id/btn_dismiss"/>
 
     </LinearLayout>
 </LinearLayout>

@@ -24,53 +24,13 @@ public class XmlMessage {
 
     public static final String XML_TAG_CHECK = "check";
 
-    public static String writeMessage(XmlTag tag){
-        return writeFullXml(tag);
-    }
-
     public static String getCheckMessage(){
         return writeMessage( XmlTag.getTag( "check", "hello", new TList<XmlAttr>(new XmlAttr( "time", String.valueOf(System.currentTimeMillis()) ) ) ) );
     }
 
-    public static String writeXml(XmlTag tags){
-        if (DEBUG) Log.d(TAG, "WriteMessage");
-
-        XmlSerializer serializer = Xml.newSerializer();
-        StringWriter writer = new StringWriter();
-
-        try {
-            serializer.setOutput(writer);
-            serializer.startDocument("UTF-8", true);
-            serializer.startTag("", "messages");
-            // TODO prefix
-            serializer.attribute("", "amount", String.valueOf(tags.getChildren().size()));
-
-            for (XmlTag tag: tags.getChildren().asList()){
-
-                serializer.startTag("", tag.getName());
-
-                for (XmlAttr att : tag.getAttributes()) {
-                    if (DEBUG) Log.d(TAG, "Attribute, Name: " + att.getName() + ", Value: " + att.getValue());
-                    serializer.attribute("", att.getName(), att.getValue());
-                }
-
-                if (tag.hasText())
-                    serializer.text(tag.getText());
-
-                serializer.endTag("", tag.getName());
-
-            }
-
-            serializer.endTag("", "messages");
-
-            serializer.endDocument();
-
-            return writer.toString();
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+    public static String writeMessage(XmlTag tag){
+        return writeFullXml(tag);
     }
-
 
     /*
       Writing a full xml from one xmlTag

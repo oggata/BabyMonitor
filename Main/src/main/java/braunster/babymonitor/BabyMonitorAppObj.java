@@ -1,6 +1,8 @@
 package braunster.babymonitor;
 
 import android.app.Application;
+import android.content.SharedPreferences;
+import android.preference.PreferenceManager;
 
 import TCP.connrction_and_threads.TCPConnection;
 
@@ -10,7 +12,7 @@ import TCP.connrction_and_threads.TCPConnection;
 public class BabyMonitorAppObj extends Application {
 
     private TCPConnection streamConnection, dataConnection;
-
+    public  SharedPreferences prefs;
     private final static String APIKEY = "a5522b00";
 
     private static BabyMonitorAppObj instance;
@@ -20,6 +22,7 @@ public class BabyMonitorAppObj extends Application {
         super.onCreate();
         instance = this;
 
+        prefs = PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
 //        BugSenseHandler.initAndStartSession(getApplicationContext(), APIKEY);
 
         streamConnection = new TCPConnection(getApplicationContext());

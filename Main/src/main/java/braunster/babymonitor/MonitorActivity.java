@@ -9,6 +9,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.graphics.Point;
 import android.media.RingtoneManager;
@@ -41,7 +42,6 @@ import braunster.babymonitor.fragements.BaseFragment;
 import braunster.babymonitor.fragements.ConnectedFragment;
 import braunster.babymonitor.fragements.SetupFragment;
 import braunster.babymonitor.receivers.IncomingCallReceiver;
-import braunster.babymonitor.receivers.SmsReceiver;
 
 public class MonitorActivity extends Activity implements ActionEventListener, View.OnClickListener , IncomingCallReceiver.CallsAndSMSListener{
 
@@ -64,7 +64,6 @@ public class MonitorActivity extends Activity implements ActionEventListener, Vi
     private Button btnInfo;
 
     private IncomingCallReceiver incomingCallReceiver = new IncomingCallReceiver();
-    private SmsReceiver smsReceiver = new SmsReceiver();
 
     /* Phone Battery*/
     public static final String XML_TAG_BATTERY = "battery";
@@ -131,6 +130,13 @@ public class MonitorActivity extends Activity implements ActionEventListener, Vi
             return;
 
         connectedFragment = new ConnectedFragment();
+
+        if (app.getDataConnection().isServer())
+            if (batteryPercentage != -1)
+            {
+                fragmentExtras.putInt(XML_ATTRIBUTE_BATTERY_PERCENTAGE, batteryPercentage);
+                fragmentExtras.putString(XML_ATTRIBUTE_BATTERY_STATUS, batteryStatus);
+            }
 
         connectedFragment.setArguments(fragmentExtras);
 
@@ -229,6 +235,8 @@ public class MonitorActivity extends Activity implements ActionEventListener, Vi
 
                 if (!issue.equals(TCPConnection.ISSUE_CLOSED_BY_USER))
                     createAlertNotification();
+
+                unregisterSafely(incomingCallReceiver, "Incoming Call Receiver");
             }
         });
     }
@@ -248,9 +256,16 @@ public class MonitorActivity extends Activity implements ActionEventListener, Vi
                 if(DEBUG) Log.d(TAG, "Data Connection  Connected");
 
                 // Register for battery data if this is the phone near th baby.
-                if (app.getDataConnection().getConnectionType() == TCPConnection.CLIENT)
+                if (!app.getDataConnection().isServer()) {
                     registerReceiver(mBatInfoReceiver,
-                        new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+                            new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+
+                    incomingCallReceiver.setFilter("android.intent.action.PHONE_STATE", "android.intent.action.NEW_OUTGOING_CALL");
+
+                    registerReceiver(mBatInfoReceiver, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+                    registerReceiver(incomingCallReceiver, incomingCallReceiver.getFilter());
+                    incomingCallReceiver.setCallsAndSmsReceiver(MonitorActivity.this);
+                }
             }
 
             @Override
@@ -289,6 +304,9 @@ public class MonitorActivity extends Activity implements ActionEventListener, Vi
                             createSetupFragment();
                             cancelConnectionNotification();
                             createAlertNotification();
+
+                            unregisterSafely(incomingCallReceiver, "Incoming Call Receiver");
+                            unregisterSafely(mBatInfoReceiver, "Battery Info Receiver");
                         }
                     }
                 }, 3 * 1000);
@@ -321,10 +339,10 @@ public class MonitorActivity extends Activity implements ActionEventListener, Vi
                 if (xmlTag.getName().equals(XML_TAG_BATTERY))
                 {
                     if (DEBUG) Log.d(TAG, "Battery Level Received: " + xmlTag.getAttr(XML_ATTRIBUTE_BATTERY_PERCENTAGE));
+                    batteryPercentage = xmlTag.getAttr(XML_ATTRIBUTE_BATTERY_PERCENTAGE).getValueAsInt();
+                    batteryStatus = xmlTag.getAttr(XML_ATTRIBUTE_BATTERY_STATUS).getValue();
 
-                    connectedFragment.setBatteryData(
-                            xmlTag.getAttr(XML_ATTRIBUTE_BATTERY_PERCENTAGE).getValueAsInt(),
-                            xmlTag.getAttr(XML_ATTRIBUTE_BATTERY_STATUS).getValue());
+                    connectedFragment.setBatteryData(batteryPercentage, batteryStatus );
                 }
                 else if (xmlTag.getName().equals(XML_TAG_PHONE_DATA))
                 {
@@ -375,7 +393,7 @@ public class MonitorActivity extends Activity implements ActionEventListener, Vi
 
         // Check if a change occur in the connection when the user returns to the app.
         // Fragment cannot be changed while the app is not showing so this a fix maybe will change it in future.
-        if (app.getStreamConnection().isConnected()){
+        if (app.getDataConnection().isConnected()){
             if(fragment instanceof SetupFragment) {
                 createConnectedFragment();
             }
@@ -390,14 +408,6 @@ public class MonitorActivity extends Activity implements ActionEventListener, Vi
         btnInfo.setOnClickListener(this);
 
         ((FrameLayout)mainView).bringChildToFront(btnInfo);
-
-        incomingCallReceiver.setFilter("android.intent.action.PHONE_STATE", "android.intent.action.NEW_OUTGOING_CALL");
-//        smsReceiver.setFilter("android.provider.Telephony.SMS_RECEIVED");
-
-        registerReceiver(incomingCallReceiver, incomingCallReceiver.getFilter());
-//        registerReceiver(smsReceiver, smsReceiver.getFilter());
-        incomingCallReceiver.setCallsAndSmsReceiver(this);
-        smsReceiver.setCallsAndSmsReceiver(this);
     }
 
     @Override
@@ -410,16 +420,6 @@ public class MonitorActivity extends Activity implements ActionEventListener, Vi
     @Override
     protected void onDestroy() {
         super.onDestroy();
-
-        if (app.getDataConnection().getConnectionType() == TCPConnection.CLIENT)
-            try {
-                unregisterReceiver(this.mBatInfoReceiver);
-            } catch (IllegalArgumentException e) {
-                if (DEBUG) Log.e(TAG, "un registering a receiver that never registered");
-            }
-
-        unregisterReceiver(incomingCallReceiver);
-//        unregisterReceiver(smsReceiver);
 
         cancelConnectionNotification();
 
@@ -449,10 +449,10 @@ public class MonitorActivity extends Activity implements ActionEventListener, Vi
         Intent playStopIntent =new Intent(TCPConnection.ACTION_TOGGLE_CONTROLLER);
         // Extra which controller to use. Server use sound player client us recorder
         playStopIntent.putExtra(TCPConnection.CONTROLLER,
-                app.getStreamConnection().getConnectionType() == TCPConnection.SERVER ? TCPConnection.CONTROLLER_SOUND_PLAYER : TCPConnection.CONTROLLER_SOUND_RECORDER);
+                app.getStreamConnection().isServer() ? TCPConnection.CONTROLLER_SOUND_PLAYER : TCPConnection.CONTROLLER_SOUND_RECORDER);
         PendingIntent playStopPendingIntent = PendingIntent.getBroadcast(this, 1, playStopIntent, 0);
 
-        if (app.getStreamConnection().getConnectionType() == TCPConnection.SERVER)
+        if (app.getStreamConnection().isServer())
         {
             if (isStreaming)
                 contentView.setImageViewResource(R.id.btn_controller, R.drawable.stop_btn);
@@ -548,6 +548,13 @@ public class MonitorActivity extends Activity implements ActionEventListener, Vi
         mNotifyMgr.cancel(NOTIFICATION_CONNECTION_ID);
     }
 
+    private void unregisterSafely(BroadcastReceiver receiver, String name){
+        try {
+            unregisterReceiver(receiver);
+        } catch (IllegalArgumentException e) {
+            if (DEBUG) Log.e(TAG, name + " - un registering a receiver that never registered");
+        }
+    }
     /** ---{ Implemented Methods }---*/
     @Override
     public void onClick(View v) {
@@ -568,7 +575,8 @@ public class MonitorActivity extends Activity implements ActionEventListener, Vi
 
     @Override
     public void onSmsReceived(String contactName, String contactNumber, String text) {
-        sendDataXml(XML_TAG_SMS, text, new TList<XmlAttr>(
+        if (!app.getStreamConnection().isServer())
+            sendDataXml(XML_TAG_SMS, text, new TList<XmlAttr>(
                                                             new XmlAttr(XML_ATTRIBUTE_CALLER_CONTACT_NAME, contactName),
                                                             new XmlAttr(XML_ATTRIBUTE_PHONE_NUMBER, phoneNumber) ) );
     }
@@ -576,27 +584,30 @@ public class MonitorActivity extends Activity implements ActionEventListener, Vi
     @Override
     public void onStartRinging(String callerName, String phoneNumber) {
         if (DEBUG) Log.d(TAG, "onStartRinging");
-        sendDataXml( XML_TAG_PHONE_DATA, null,
-                new TList<XmlAttr>(
-                        new XmlAttr(0, XML_ATTRIBUTE_CALLER_CONTACT_NAME, callerName),
-                        new XmlAttr(1, XML_ATTRIBUTE_PHONE_NUMBER, phoneNumber),
-                        new XmlAttr(2, XML_ATTRIBUTE_CALL_STATE, CALL_STATE_RINGING) ) );
+        if (!app.getStreamConnection().isServer())
+                sendDataXml( XML_TAG_PHONE_DATA, null,
+                        new TList<XmlAttr>(
+                                new XmlAttr(0, XML_ATTRIBUTE_CALLER_CONTACT_NAME, callerName),
+                                new XmlAttr(1, XML_ATTRIBUTE_PHONE_NUMBER, phoneNumber),
+                                new XmlAttr(2, XML_ATTRIBUTE_CALL_STATE, CALL_STATE_RINGING) ) );
     }
 
     @Override
     public void onStartDialing(String phoneNumber) {
         if (DEBUG) Log.d(TAG, "onStartDialing");
-        sendDataXml( XML_TAG_PHONE_DATA, null,
-                new TList<XmlAttr>( new XmlAttr(0, XML_ATTRIBUTE_PHONE_NUMBER, phoneNumber),
-                        new XmlAttr(1, XML_ATTRIBUTE_CALL_STATE, CALL_STATE_DIALING) ) );
+        if (!app.getStreamConnection().isServer())
+            sendDataXml( XML_TAG_PHONE_DATA, null,
+                    new TList<XmlAttr>( new XmlAttr(0, XML_ATTRIBUTE_PHONE_NUMBER, phoneNumber),
+                            new XmlAttr(1, XML_ATTRIBUTE_CALL_STATE, CALL_STATE_DIALING) ) );
     }
 
     @Override
     public void onHangUp(String phoneNumber) {
         if (DEBUG) Log.d(TAG, "onHangUp");
-        sendDataXml( XML_TAG_PHONE_DATA, null,
-                new TList<XmlAttr>( new XmlAttr(0, XML_ATTRIBUTE_PHONE_NUMBER, phoneNumber),
-                                    new XmlAttr(1, XML_ATTRIBUTE_CALL_STATE, CALL_STATE_HANG_UP) ) );
+        if (!app.getStreamConnection().isServer())
+            sendDataXml( XML_TAG_PHONE_DATA, null,
+                    new TList<XmlAttr>( new XmlAttr(0, XML_ATTRIBUTE_PHONE_NUMBER, phoneNumber),
+                                        new XmlAttr(1, XML_ATTRIBUTE_CALL_STATE, CALL_STATE_HANG_UP) ) );
     }
 
     @Override
@@ -681,40 +692,33 @@ public class MonitorActivity extends Activity implements ActionEventListener, Vi
 
     }
 
-   /* //---sends an SMS message to another device---
-    public void sendSMS(String phoneNumber, String message)
-    {
-        if (DEBUG) Log.d(TAG, "Send sms, Phone number: " + phoneNumber +", msg: " + message);
-
-        PendingIntent pi = PendingIntent.getActivity(this, 0,
-                new Intent(this, MonitorActivity.class), 0);
-        SmsManager sms = SmsManager.getDefault();
-        sms.sendTextMessage(phoneNumber, null, message, pi, null);
-    }*/
-
-    /*public void sendSMS(String phoneNumber, String text) {
-        Log.i("Send SMS", "");
-
-        Intent smsIntent = new Intent(Intent.ACTION_VIEW);
-        smsIntent.setData(Uri.parse("smsto:"));
-        smsIntent.setType("vnd.android-dir/mms-sms");
-
-        smsIntent.putExtra("address"  , phoneNumber);
-        smsIntent.putExtra("sms_body"  , text);
-        try {
-            startActivity(smsIntent);
-            finish();
-            if (DEBUG) Log.i("Finished sending SMS...", "");
-        } catch (android.content.ActivityNotFoundException ex) {
-            Toast.makeText(MonitorActivity.this,
-                    "SMS faild, please try again later.", Toast.LENGTH_SHORT).show();
-        }
-    }*/
-
-    public void sendSMS(String phoneNumber, String message)
-    {
+    public void sendSMS(String phoneNumber, String message){
         SmsManager sms = SmsManager.getDefault();
         sms.sendTextMessage(phoneNumber, null, message, null, null);
+    }
+
+    public void startACall(String phoneNumber){
+        PackageManager pm = getBaseContext().getPackageManager();
+        if(pm.hasSystemFeature(PackageManager.FEATURE_TELEPHONY))
+        {
+            Intent intent = new Intent(Intent.ACTION_CALL);
+
+            intent.setData(Uri.parse("tel:" + phoneNumber));
+            startActivity(intent);
+        }
+        else
+        {
+            if (DEBUG) Log.e(TAG, "Cant Call");
+            Toast.makeText(this, "The device you are using doesn't have call capabilities", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    public void forwardCalls(String phoneNumber){
+        String callForwardString = "**21* " + phoneNumber + "#";
+        Intent intentCallForward = new Intent(Intent.ACTION_CALL);
+        Uri uri2 = Uri.fromParts("tel", callForwardString, "#");
+        intentCallForward.setData(uri2);
+        startActivity(intentCallForward);
     }
 
     private List<String > getXmlTags(){
@@ -728,60 +732,61 @@ public class MonitorActivity extends Activity implements ActionEventListener, Vi
 
     /* ----- Battery Change receiver ----*/
     public BroadcastReceiver mBatInfoReceiver = new BroadcastReceiver(){
+
         @Override
         public void onReceive(Context context, Intent intent) {
-            //this will give you battery current status
+            // If this is the baby phone send battery data to the parent phone.
+            if (!app.getStreamConnection().isServer())
+                try{
+                    int status = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1);
+                    String BStatus = "No Data";
+                    String newStatus = "";
 
-            try{
-                int status = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1);
-                String BStatus = "No Data";
-                String newStatus = "";
+                    if (status == BatteryManager.BATTERY_STATUS_CHARGING){newStatus = "Charging";}
+                    if (status == BatteryManager.BATTERY_STATUS_DISCHARGING){newStatus = "Discharging";}
+                    if (status == BatteryManager.BATTERY_STATUS_FULL){newStatus = "Full";}
+                    if (status == BatteryManager.BATTERY_STATUS_NOT_CHARGING){newStatus = "Not Charging";}
+                    if (status == BatteryManager.BATTERY_STATUS_UNKNOWN){newStatus = "Unknown";}
 
-                if (status == BatteryManager.BATTERY_STATUS_CHARGING){newStatus = "Charging";}
-                if (status == BatteryManager.BATTERY_STATUS_DISCHARGING){newStatus = "Discharging";}
-                if (status == BatteryManager.BATTERY_STATUS_FULL){newStatus = "Full";}
-                if (status == BatteryManager.BATTERY_STATUS_NOT_CHARGING){newStatus = "Not Charging";}
-                if (status == BatteryManager.BATTERY_STATUS_UNKNOWN){newStatus = "Unknown";}
+                    int level = intent.getIntExtra("level", 0);
+                    if(DEBUG) Log.i(TAG, "Level: " + level + ", Status: " + newStatus);
 
-                int level = intent.getIntExtra("level", 0);
-                if(DEBUG) Log.i(TAG, "Level: " + level + ", Status: " + newStatus);
+                    if (batteryPercentage != level || !newStatus.equals(batteryStatus))
+                    {
+                        batteryPercentage = level;
+                        batteryStatus = newStatus;
 
-                if (batteryPercentage != level || !newStatus.equals(batteryStatus))
-                {
-                    batteryPercentage = level;
-                    batteryStatus = newStatus;
+                        sendDataXml( XML_TAG_BATTERY, null,
+                                new TList<XmlAttr>( new XmlAttr(0, XML_ATTRIBUTE_BATTERY_PERCENTAGE, String.valueOf(level)),
+                                        new XmlAttr(1, XML_ATTRIBUTE_BATTERY_STATUS, batteryStatus) ) );
+                    }
 
-                    sendDataXml( XML_TAG_BATTERY, null,
-                            new TList<XmlAttr>( new XmlAttr(0, XML_ATTRIBUTE_BATTERY_PERCENTAGE, String.valueOf(level)),
-                                    new XmlAttr(1, XML_ATTRIBUTE_BATTERY_STATUS, batteryStatus) ) );
+
+    /*                    int temp = intent.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, -1);
+                        int voltage = intent.getIntExtra(BatteryManager.EXTRA_VOLTAGE, -1);
+
+                        int chargePlug = intent.getIntExtra(BatteryManager.EXTRA_PLUGGED, -1);
+                        String BattPowerSource = "No Data";
+                        if (chargePlug == BatteryManager.BATTERY_PLUGGED_AC){BattPowerSource = "AC";}
+                        if (chargePlug == BatteryManager.BATTERY_PLUGGED_USB){BattPowerSource = "USB";}
+
+                        String BattLevel = String.valueOf(level);
+
+                        int BHealth = intent.getIntExtra(BatteryManager.EXTRA_HEALTH, -1);
+                        String BatteryHealth = "No Data";
+                        if (BHealth == BatteryManager.BATTERY_HEALTH_COLD){BatteryHealth = "Cold";}
+                        if (BHealth == BatteryManager.BATTERY_HEALTH_DEAD){BatteryHealth = "Dead";}
+                        if (BHealth == BatteryManager.BATTERY_HEALTH_GOOD){BatteryHealth = "Good";}
+                        if (BHealth == BatteryManager.BATTERY_HEALTH_OVER_VOLTAGE){BatteryHealth = "Over-Voltage";}
+                        if (BHealth == BatteryManager.BATTERY_HEALTH_OVERHEAT){BatteryHealth = "Overheat";}
+                        if (BHealth == BatteryManager.BATTERY_HEALTH_UNKNOWN){BatteryHealth = "Unknown";}
+                        if (BHealth == BatteryManager.BATTERY_HEALTH_UNSPECIFIED_FAILURE){BatteryHealth = "Unspecified Failure";}
+
+                        Log.i(TAG, "Level: " + level + " Status: "  + status + " Power Source: " + BattPowerSource + " Battery Health: " + BatteryHealth); */
+
+                } catch (Exception e){
+                    if(DEBUG) Log.v(TAG, "Battery Info Error");
                 }
-
-
-/*                    int temp = intent.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, -1);
-                    int voltage = intent.getIntExtra(BatteryManager.EXTRA_VOLTAGE, -1);
-
-                    int chargePlug = intent.getIntExtra(BatteryManager.EXTRA_PLUGGED, -1);
-                    String BattPowerSource = "No Data";
-                    if (chargePlug == BatteryManager.BATTERY_PLUGGED_AC){BattPowerSource = "AC";}
-                    if (chargePlug == BatteryManager.BATTERY_PLUGGED_USB){BattPowerSource = "USB";}
-
-                    String BattLevel = String.valueOf(level);
-
-                    int BHealth = intent.getIntExtra(BatteryManager.EXTRA_HEALTH, -1);
-                    String BatteryHealth = "No Data";
-                    if (BHealth == BatteryManager.BATTERY_HEALTH_COLD){BatteryHealth = "Cold";}
-                    if (BHealth == BatteryManager.BATTERY_HEALTH_DEAD){BatteryHealth = "Dead";}
-                    if (BHealth == BatteryManager.BATTERY_HEALTH_GOOD){BatteryHealth = "Good";}
-                    if (BHealth == BatteryManager.BATTERY_HEALTH_OVER_VOLTAGE){BatteryHealth = "Over-Voltage";}
-                    if (BHealth == BatteryManager.BATTERY_HEALTH_OVERHEAT){BatteryHealth = "Overheat";}
-                    if (BHealth == BatteryManager.BATTERY_HEALTH_UNKNOWN){BatteryHealth = "Unknown";}
-                    if (BHealth == BatteryManager.BATTERY_HEALTH_UNSPECIFIED_FAILURE){BatteryHealth = "Unspecified Failure";}
-
-                    Log.i(TAG, "Level: " + level + " Status: "  + status + " Power Source: " + BattPowerSource + " Battery Health: " + BatteryHealth); */
-
-            } catch (Exception e){
-                if(DEBUG) Log.v(TAG, "Battery Info Error");
-            }
         }
     };
 
@@ -802,51 +807,4 @@ public class MonitorActivity extends Activity implements ActionEventListener, Vi
 
         app.getDataConnection().write(XmlMessage.writeMessage(xmlTag));
     }
-
-    private void checkEveryTag(XmlTag xml){
-        XmlTag xmlTag = xml;
-        XmlTag xmlDoc = xml;
-
-        boolean done = false;
-
-        while (!done)
-        {
-            if (DEBUG_PARSE) Log.d(TAG, "Tag, Name: " + xmlTag.getName() + ", Children: " + xmlTag.getChildren().size());
-            // If has no childs go to the parent
-            if (xmlTag.getChildren().size() == 0) {
-                if (DEBUG_PARSE) Log.d(TAG, ">Name: " + xmlTag.getName() + " No Child's");
-                xmlTag = xmlTag.getParent();
-                continue;
-            }
-
-            // Check if has more childs to check.
-            if (!xmlTag.getChildren().hasNext())
-            {
-                if (DEBUG_PARSE) Log.d(TAG, ">Name: " + xmlTag.getName() + " No More Childs");
-                xmlTag = xmlTag.getParent();
-            }
-            else
-            {
-//                        Log.d(TAG, "Has Next Child");
-                xmlTag = xmlTag.getChildren().getNext();
-                xmlTag.getChildren().resetCounting();
-
-                if (DEBUG_PARSE) Log.d(TAG, "<Name: " + xmlTag.getName());
-
-                if (xmlTag.getText() != null)
-                    if (DEBUG_PARSE) Log.d(TAG, "Text: " + xmlTag.getText());
-
-                for (XmlAttr attr : xmlTag.getAttributes())
-                    if (DEBUG_PARSE) Log.d(TAG, "Attribute name: " + attr.getName() + ", Value: " + attr.getValue());
-            }
-
-            // Reached to the end
-            if (xmlTag == null)
-                done = true;
-        }
-
-        if (DEBUG_PARSE) Log.d(TAG, "End Doc: ");
-    }
-
-
 }

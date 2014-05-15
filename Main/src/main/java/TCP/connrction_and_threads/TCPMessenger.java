@@ -19,8 +19,8 @@ public class TCPMessenger extends BaseThread {
     private static final boolean DEBUG = true;
     private boolean checkConnection = false;
 
-    private long lastCommTime = -1;
     private static final int CHECK_INTERVALS = 5000;
+    private static final int FIRST_SLEEP_TIME = 2000;
 
 
     public TCPMessenger(InOutStreams inOutStreams, Handler handler, TCPConnection connection){
@@ -33,6 +33,12 @@ public class TCPMessenger extends BaseThread {
     public void run() {
         super.run();
 
+        // Sleep for a while so the other side connection will have time to arrage itself and not miss any message.
+        try {
+            sleep(FIRST_SLEEP_TIME);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
         while (!isInterrupted())
         {
             if (checkConnection && ( System.currentTimeMillis() - connection.lastCommunicationTime > CHECK_INTERVALS) )

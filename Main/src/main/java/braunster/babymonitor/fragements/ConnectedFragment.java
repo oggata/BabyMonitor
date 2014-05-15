@@ -1,8 +1,10 @@
 package braunster.babymonitor.fragements;
 
+import android.content.Context;
 import android.database.Cursor;
 import android.graphics.Color;
 import android.graphics.drawable.BitmapDrawable;
+import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
@@ -21,7 +23,6 @@ import android.widget.Toast;
 import TCP.connrction_and_threads.TCPConnection;
 import TCP.objects.TList;
 import TCP.xml.objects.XmlAttr;
-import braunster.babymonitor.BabyMonitorAppObj;
 import braunster.babymonitor.ConnectedPhoneData;
 import braunster.babymonitor.MonitorActivity;
 import braunster.babymonitor.R;
@@ -34,6 +35,7 @@ public class ConnectedFragment extends BaseFragment implements View.OnClickListe
     private static final String TAG = ConnectedFragment.class.getSimpleName();
     private static final boolean DEBUG = true;
     private static final String PREFS_FIRST_CONNECTION = "prefs.first_connection";
+    private static final String PREFS_AUDIO_MODE = "prefs.audio_mode";
 
     /* Views*/
     private Button btnPlayStop, btnDisconnect;
@@ -42,6 +44,7 @@ public class ConnectedFragment extends BaseFragment implements View.OnClickListe
 
     private MonitorActivity monitor;
     private ConnectedPhoneData connectedPhoneData = new ConnectedPhoneData();
+    private AudioManager am;
 
     @Override
     public void setArguments(Bundle args) {
@@ -55,10 +58,9 @@ public class ConnectedFragment extends BaseFragment implements View.OnClickListe
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
-        app = (BabyMonitorAppObj) getActivity().getApplication();
-
         monitor = (MonitorActivity) getActivity();
+
+        am = (AudioManager) getActivity().getSystemService(Context.AUDIO_SERVICE);
     }
 
     @Override
@@ -167,33 +169,56 @@ public class ConnectedFragment extends BaseFragment implements View.OnClickListe
         if (connectedPhoneData.getBatteryLevel() != -1 && connectedPhoneData.getBatteryStatus() != null)
             setBatteryData(connectedPhoneData.getBatteryLevel(), connectedPhoneData.getBatteryStatus());
 
+        // Making sure the baby phone is in silent mode so incoming data wont wake up the baby.
+        if (app.getStreamConnection().getConnectionType() == TCPConnection.CLIENT)
+        {
+//            if(DEBUG) Log.d(TAG, "Phone Audio Mode: " + am.getRingerMode());
+            if (am.getRingerMode() != AudioManager.RINGER_MODE_SILENT)
+            {
+//                if(DEBUG) Log.d(TAG, "Saving the last mode");
+                app.prefs.edit().putInt(PREFS_AUDIO_MODE, am.getRingerMode()).commit();
+            }
+            am.setRingerMode(AudioManager.RINGER_MODE_SILENT);
+        }
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        Log.d(TAG, "OnDestroy");
+        // Returning the device audio back to his prev state.
+        if (app.prefs.getInt(PREFS_AUDIO_MODE, -1000) != -1000)
+        {
+//            if(DEBUG) Log.d(TAG, "Putting the phone back to prev state: " + app.prefs.getInt(PREFS_AUDIO_MODE, 0));
+            am.setRingerMode(app.prefs.getInt(PREFS_AUDIO_MODE, 0));
+        }
     }
 
     public void setBatteryData(int level, String status) {
         if (DEBUG) Log.d(TAG, "Battery Data, Percentage: " + level + ", Status: " + status);
+        if (app.getDataConnection().isConnected()) {
+            connectedPhoneData.setBatteryLevel(level);
+            connectedPhoneData.setBatteryStatus(status);
 
-        connectedPhoneData.setBatteryLevel(level);
-        connectedPhoneData.setBatteryStatus(status);
+            if (txtBatteryLevel.getVisibility() != View.VISIBLE)
+                txtBatteryLevel.setVisibility(View.VISIBLE);
 
-        if (txtBatteryLevel.getVisibility() != View.VISIBLE)
-            txtBatteryLevel.setVisibility(View.VISIBLE);
+            if (txtBatteryStatus.getVisibility() != View.VISIBLE)
+                txtBatteryStatus.setVisibility(View.VISIBLE);
 
-        if (txtBatteryStatus.getVisibility() != View.VISIBLE)
-            txtBatteryStatus.setVisibility(View.VISIBLE);
-
-        txtBatteryLevel.setText(String.valueOf(level));
-        txtBatteryStatus.setText(status);
+            txtBatteryLevel.setText(String.valueOf(level));
+            txtBatteryStatus.setText(status);
+        }
     }
 
     public void onIncomingData(String contactName, String contactNumber, String text){
         if (DEBUG) Log.d(TAG, "onIncomingCall, Contact: " + contactName +", Numner: " + contactNumber + ((text == null) ? ". Call!" : ". SMS! Text: " + text));
-
-        createIncomingDataPopup(contactName, contactNumber, text);
-
+        if (app.getDataConnection().isConnected())
+            createIncomingDataPopup(contactName, contactNumber, text);
     }
 
     public void dismissIncomingDataPopup(){
-        if (incomingDataPopup.isShowing())
+        if (incomingDataPopup != null && incomingDataPopup.isShowing())
             incomingDataPopup.dismiss();
     }
 
@@ -231,14 +256,11 @@ public class ConnectedFragment extends BaseFragment implements View.OnClickListe
     }
 
     private void createIncomingDataPopup(String contactName, final String contactNumber, final String text){
-//        if (getActivity().getLayoutInflater() != null) { if (DEBUG) Log.e(TAG, "layout inflater is null"); return; }
         View v = getActivity().getLayoutInflater().inflate(R.layout.popup_incoming_call, null);
-
-//        if (v == null) { if (DEBUG) Log.e(TAG, "view is null"); return; }
 
         ((TextView)v.findViewById(R.id.txt_caller_name)).setText(contactName + " - " + contactNumber);
 
-        final EditText smsInput = ((EditText)v.findViewById(R.id.et_reply_text));
+        final EditText smsInput = ((EditText)v.findViewById(R.id.et_reply_text)   );
         if (smsInput == null) { if (DEBUG) Log.e(TAG, "sms input is null"); return; }
 
         v.findViewById(R.id.btn_reply).setOnClickListener(new View.OnClickListener() {
@@ -250,7 +272,7 @@ public class ConnectedFragment extends BaseFragment implements View.OnClickListe
                 {
                     if (DEBUG) Log.d(TAG, "Data: " + data);
                     // Send the sms text back to the connected phone.
-                    ((MonitorActivity)getActivity()).sendDataXml(MonitorActivity.XML_TAG_SMS, data, new TList<XmlAttr>(
+                    monitor.sendDataXml(MonitorActivity.XML_TAG_SMS, data, new TList<XmlAttr>(
                             new XmlAttr(MonitorActivity.XML_ATTRIBUTE_TODO, MonitorActivity.SEND),
                             new XmlAttr(MonitorActivity.XML_ATTRIBUTE_CALLER_CONTACT_NAME, getContactNameForNumber(contactNumber)),
                             new XmlAttr(MonitorActivity.XML_ATTRIBUTE_PHONE_NUMBER, contactNumber)));
@@ -258,13 +280,16 @@ public class ConnectedFragment extends BaseFragment implements View.OnClickListe
                     if (incomingDataPopup.isShowing())
                         incomingDataPopup.dismiss();
                 }
+                else Toast.makeText(getActivity(), "Please enter some text.", Toast.LENGTH_SHORT).show();
             }
         });
 
         v.findViewById(R.id.btn_call).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                // TODO call this number
+                monitor.startACall(contactNumber);
+                if (incomingDataPopup.isShowing())
+                    incomingDataPopup.dismiss();
             }
         });
 
@@ -287,7 +312,7 @@ public class ConnectedFragment extends BaseFragment implements View.OnClickListe
         incomingDataPopup.setFocusable(true);
         incomingDataPopup.setOutsideTouchable(true);
         incomingDataPopup.setBackgroundDrawable(new BitmapDrawable());
-        incomingDataPopup.setWidth(screenSize.x);
+        incomingDataPopup.setWidth((int) (screenSize.x/1.5f));
         incomingDataPopup.setHeight(v.getLayoutParams().WRAP_CONTENT);
         incomingDataPopup.setAnimationStyle(R.style.PopupAnimation);
         incomingDataPopup.showAtLocation(mainView, Gravity.CENTER, 0, 0);
