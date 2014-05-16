@@ -5,7 +5,7 @@ import android.graphics.Point;
 import android.os.Bundle;
 import android.view.View;
 
-import braunster.babymonitor.BabyMonitorAppObj;
+import braunster.babymonitor.objects.BabyMonitorAppObj;
 
 /**
  * Created by itzik on 5/9/2014.

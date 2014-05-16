@@ -22,6 +22,7 @@ import TCP.connrction_and_threads.AudioStreamController;
 import TCP.connrction_and_threads.TCPConnection;
 import TCP.interfaces.WifiStatesListener;
 import braunster.babymonitor.R;
+import braunster.babymonitor.objects.Prefs;
 
 /**
  * Created by itzik on 5/9/2014.
@@ -43,18 +44,12 @@ public  class SetupFragment extends BaseFragment implements View.OnClickListener
     private final String TAG = SetupFragment.class.getSimpleName();
     private static final boolean DEBUG = false;
 
-    private static final String PREFS_SERVER_IP = "prefs.server.ip";
-    private static final String PREFS_SERVER_PORT = "prefs.server.port";
-    private static final String PREFS_FIRST_LOGIN = "prefs.first_login";
-    private static final String PREFS_FIRST_SETTING = "prefs.first_setting";
-    private static final String PREFS_SAMPLE_RATE = "prefs_sample_rate";// The sample rate used by the user.
-
     private static final int FADE_DURATION = 400, BACK_CHANGE_DURATION = 400;
     private static final int[] DATA_SERVER_PORTS = {9481, 4672};
     private static final int[] STREAM_SERVER_PORTS = {5489, 9714};
 
     /* Views*/
-    private LinearLayout liServerClientBtn, liServerDataEt;
+    private LinearLayout liServerClientBtn;
     private Button btnServer, btnClient, btnSetting;
     private TextView txtIp, txtBatterLevel;
     private EditText etIp, etServerPort;
@@ -68,18 +63,18 @@ public  class SetupFragment extends BaseFragment implements View.OnClickListener
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
 
-        mainView = inflater.inflate(R.layout.fragment_monitor, container, false);
+        mainView = inflater.inflate(R.layout.fragment_setup, container, false);
 
         viewsInit();
 
         setTxtIp();
 
         // Set the sample rate to the one saved on the preference manager
-        AudioStreamController.sampleRate = app.prefs.getInt(PREFS_SAMPLE_RATE, 8000);
+        AudioStreamController.sampleRate = app.prefs.getInt(Prefs.SAMPLE_RATE, 8000);
 
         // Check for ip address and server port from the preferences
-        etIp.setText(app.prefs.getString(PREFS_SERVER_IP, ""));
-        etServerPort.setText(app.prefs.getString(PREFS_SERVER_PORT, ""));
+        etIp.setText(app.prefs.getString(Prefs.SERVER_IP, ""));
+        etServerPort.setText(app.prefs.getString(Prefs.SERVER_PORT, ""));
 
         return mainView;
     }
@@ -153,7 +148,7 @@ public  class SetupFragment extends BaseFragment implements View.OnClickListener
                             }
                             else Toast.makeText(getActivity(), "Server is already open", Toast.LENGTH_LONG).show();
 
-                            app.prefs.edit().putString(PREFS_SERVER_PORT,etServerPort.getText().toString()).commit();
+                            app.prefs.edit().putString(Prefs.SERVER_PORT,etServerPort.getText().toString()).commit();
                         }
                         else
                             Toast.makeText(getActivity(), "Please select a a port", Toast.LENGTH_LONG).show();
@@ -189,8 +184,8 @@ public  class SetupFragment extends BaseFragment implements View.OnClickListener
                                 v.setSelected(true);
                             }
 
-                            app.prefs.edit().putString(PREFS_SERVER_IP,etIp.getText().toString()).commit();
-                            app.prefs.edit().putString(PREFS_SERVER_PORT,etServerPort.getText().toString()).commit();
+                            app.prefs.edit().putString(Prefs.SERVER_IP,etIp.getText().toString()).commit();
+                            app.prefs.edit().putString(Prefs.SERVER_PORT,etServerPort.getText().toString()).commit();
                         }
                         else
                             Toast.makeText(getActivity(), "Please enter the ip address and the selected port of the server", Toast.LENGTH_LONG).show();
@@ -207,12 +202,11 @@ public  class SetupFragment extends BaseFragment implements View.OnClickListener
 
         // Linear Layout
         liServerClientBtn = (LinearLayout) mainView.findViewById(R.id.linear_client_server_select_buttons);
-        liServerDataEt = (LinearLayout) mainView.findViewById(R.id.linear_server_data);
 
         // Buttons - Server & Client Connection - Disconnect - Control
         btnServer = (Button) mainView.findViewById(R.id.btn_start_server);
         btnClient = (Button) mainView.findViewById(R.id.btn_start_client);
-        btnSetting = (Button) mainView.findViewById(R.id.btn_setting);
+        btnSetting = (Button) mainView.findViewById(R.id.btn_audio_setting);
 
         // EditText - Server Data
         etIp = (EditText) mainView.findViewById(R.id.et_server_ip);
@@ -229,22 +223,8 @@ public  class SetupFragment extends BaseFragment implements View.OnClickListener
         switch (v.getId())
         {
 
-            case R.id.btn_setting:
-
-                if (v.isSelected())
-                {
-                    v.setSelected(false);
-
-                    if (settingPopUp != null && settingPopUp.isShowing())
-                        settingPopUp.dismiss();
-
-                }
-                else
-                {
-                    v.setSelected(true);
-
-                    createSettingsPopup();
-                }
+            case R.id.btn_audio_setting:
+                createSettingsPopup();
                 break;
         }
     }
@@ -262,7 +242,7 @@ public  class SetupFragment extends BaseFragment implements View.OnClickListener
 
         settingPopUp = new PopupWindow(getActivity());
 
-        View v = getActivity().getLayoutInflater().inflate(R.layout.setting_popup_layout, null);
+        View v = getActivity().getLayoutInflater().inflate(R.layout.popup_audio_setting_layout, null);
 
         final RadioGroup radioGrp = (RadioGroup) v.findViewById(R.id.radio_grp_samples);
         RadioButton radio;
@@ -286,7 +266,7 @@ public  class SetupFragment extends BaseFragment implements View.OnClickListener
 
                 AudioStreamController.sampleRate = checkedId;
 
-                app.prefs.edit().putInt(PREFS_SAMPLE_RATE, checkedId).commit();
+                app.prefs.edit().putInt(Prefs.SAMPLE_RATE, checkedId).commit();
 
                 // Small delay so the user will see what he picked.
                 mainView.postDelayed(new Runnable() {
@@ -301,42 +281,26 @@ public  class SetupFragment extends BaseFragment implements View.OnClickListener
         settingPopUp.setOnDismissListener(new PopupWindow.OnDismissListener() {
             @Override
             public void onDismiss() {
-
-                // A small delay for animation and making sure the if user pressed the btnsettign again it would not show again.
-                // The setSelected to false is the trick.
-                mainView.postDelayed(new Runnable() {
-                    @Override
-                    public void run() {
-                        btnSetting.setSelected(false);
-
-                        showServerData();
-
-                        // If the info dialog is shown above the server data layout dont show the server and client buttons.
-                        if (infoDialog != null && infoDialog.isShowing() && infoDialog.isAboveAnchor())
-                            return;
-
-                        showServerClientButtons();
-                    }
-                }, FADE_DURATION - 100);
+                showContent();
             }
         });
 
         settingPopUp.setContentView(v);
         settingPopUp.setOutsideTouchable(true);
+        settingPopUp.setFocusable(true);
         settingPopUp.setBackgroundDrawable(new BitmapDrawable());
         settingPopUp.setWidth(v.getLayoutParams().WRAP_CONTENT);
         settingPopUp.setHeight(v.getLayoutParams().WRAP_CONTENT);
         settingPopUp.setAnimationStyle(R.style.PopupAnimation);
 
-        hideServerClientButtons();
-        hideServerData();
+        hideContent();
 
         settingPopUp.showAsDropDown(btnSetting);
 
     }
 
     private void createHowToConnectPopup(){
-        View v = getActivity().getLayoutInflater().inflate(R.layout.info_popup_layout, null);
+        View v = getActivity().getLayoutInflater().inflate(R.layout.popup_info_layout, null);
 
         ((TextView)v.findViewById(R.id.txt)).setText("Enter the ip address of the phone you want to place in the baby room." +
                 " When the ip is set press on the 'Parent Button' in the phone you want to be near you, only then press on the 'Baby Button'. ");
@@ -371,7 +335,7 @@ public  class SetupFragment extends BaseFragment implements View.OnClickListener
     private void createButtonAndIpInfoPopup(){
 
         // Server popup
-        View v = getActivity().getLayoutInflater().inflate(R.layout.info_popup_layout, null);
+        View v = getActivity().getLayoutInflater().inflate(R.layout.popup_info_layout, null);
         ((TextView)v.findViewById(R.id.txt)).setText("Parent Button");
         ((TextView)v.findViewById(R.id.txt)).setTextSize(15f);
         serverDialog = new PopupWindow(getActivity());
@@ -384,7 +348,7 @@ public  class SetupFragment extends BaseFragment implements View.OnClickListener
         serverDialog.showAsDropDown(btnServer);
 
         // Client popup
-        View v2 = getActivity().getLayoutInflater().inflate(R.layout.info_popup_layout, null);
+        View v2 = getActivity().getLayoutInflater().inflate(R.layout.popup_info_layout, null);
         ((TextView)v2.findViewById(R.id.txt)).setText("Baby Button");
         ((TextView)v2.findViewById(R.id.txt)).setTextSize(15f);
         clientDialog = new PopupWindow(getActivity());
@@ -397,7 +361,7 @@ public  class SetupFragment extends BaseFragment implements View.OnClickListener
         clientDialog.showAsDropDown(btnClient);
 
         // Ip popup
-        View v3 = getActivity().getLayoutInflater().inflate(R.layout.info_popup_layout, null);
+        View v3 = getActivity().getLayoutInflater().inflate(R.layout.popup_info_layout, null);
         ((TextView)v3.findViewById(R.id.txt)).setTextSize(11f);
         ((TextView)v3.findViewById(R.id.txt)).setText("Your phone Ip ->");
         PopupWindow popupIp = new PopupWindow(getActivity());
@@ -451,22 +415,6 @@ public  class SetupFragment extends BaseFragment implements View.OnClickListener
 
         /* ----- Show/Hide Views ----*/
 
-    /* The IP and PORT data*/
-    private void showServerData(){
-        btnClient.setSelected(false);
-        btnServer.setSelected(false);
-        fadeViewIn(liServerDataEt);
-
-        etIp.setEnabled(true);
-        etServerPort.setEnabled(true);
-    }
-    private void hideServerData(){
-        fadeViewOut(liServerDataEt);
-
-        etIp.setEnabled(false);
-        etServerPort.setEnabled(false);
-    }
-
     /*Server And Client Buttons*/
     private void showServerClientButtons(){
         fadeViewIn(liServerClientBtn);
@@ -481,21 +429,34 @@ public  class SetupFragment extends BaseFragment implements View.OnClickListener
         btnServer.setEnabled(false);
     }
 
+    public void showContent(){
+        fadeViewIn(mainView.findViewById(R.id.linear_content));
+
+        btnClient.setEnabled(true);
+        btnServer.setEnabled(true);
+    }
+
+    public void hideContent(){
+        fadeViewOut(mainView.findViewById(R.id.linear_content));
+
+        btnClient.setEnabled(false);
+        btnServer.setEnabled(false);
+    }
     /*--- First Cases ---*/
     private void firstLogin(){
 
-        if (app.prefs.getBoolean(PREFS_FIRST_LOGIN, true))
+        if (app.prefs.getBoolean(Prefs.FIRST_LOGIN, true))
         {
-            app.prefs.edit().putBoolean(PREFS_FIRST_LOGIN, false).commit();
+            app.prefs.edit().putBoolean(Prefs.FIRST_LOGIN, false).commit();
 
             createHowToConnectPopup();
         }
     }
 
     private void firstSetting(){
-        if (app.prefs.getBoolean(PREFS_FIRST_SETTING, true))
+        if (app.prefs.getBoolean(Prefs.FIRST_SETTING, true))
         {
-            app.prefs.edit().putBoolean(PREFS_FIRST_SETTING, false).commit();
+            app.prefs.edit().putBoolean(Prefs.FIRST_SETTING, false).commit();
         }
     }
 

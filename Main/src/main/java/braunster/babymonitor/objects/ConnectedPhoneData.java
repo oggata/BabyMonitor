@@ -1,4 +1,4 @@
-package braunster.babymonitor;
+package braunster.babymonitor.objects;
 
 /**
  * Created by itzik on 5/14/2014.

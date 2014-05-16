@@ -12,6 +12,7 @@ import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.graphics.Point;
+import android.graphics.drawable.BitmapDrawable;
 import android.media.RingtoneManager;
 import android.net.Uri;
 import android.os.BatteryManager;
@@ -22,8 +23,11 @@ import android.telephony.TelephonyManager;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
+import android.widget.CheckBox;
+import android.widget.CompoundButton;
 import android.widget.FrameLayout;
-import android.widget.RemoteViews;
+import android.widget.PopupWindow;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import java.util.ArrayList;
@@ -41,9 +45,11 @@ import TCP.xml.objects.XmlTag;
 import braunster.babymonitor.fragements.BaseFragment;
 import braunster.babymonitor.fragements.ConnectedFragment;
 import braunster.babymonitor.fragements.SetupFragment;
+import braunster.babymonitor.objects.BabyMonitorAppObj;
+import braunster.babymonitor.objects.Prefs;
 import braunster.babymonitor.receivers.IncomingCallReceiver;
 
-public class MonitorActivity extends Activity implements ActionEventListener, View.OnClickListener , IncomingCallReceiver.CallsAndSMSListener{
+public class MonitorActivity extends Activity implements ActionEventListener, View.OnClickListener , IncomingCallReceiver.CallsAndSMSListener, CompoundButton.OnCheckedChangeListener{
 
     private final String TAG = MonitorActivity.class.getSimpleName();
     private static final boolean DEBUG = true;
@@ -54,14 +60,14 @@ public class MonitorActivity extends Activity implements ActionEventListener, Vi
     private BaseFragment fragment;
 
     private static final int FADE_DURATION = 400;
-    private static final int NOTIFICATION_CONNECTION_ID = 1991;
+    public static final int NOTIFICATION_CONNECTION_ID = 1991;
     private static final int NOTIFICATION_ALERT_ID = 1990;
 
     private Bundle fragmentExtras;
     private Point screenSize = new Point();
 
     private View mainView;
-    private Button btnInfo;
+    private Button btnInfo, btnSettings;
 
     private IncomingCallReceiver incomingCallReceiver = new IncomingCallReceiver();
 
@@ -76,14 +82,12 @@ public class MonitorActivity extends Activity implements ActionEventListener, Vi
     public static final String XML_ATTRIBUTE_PHONE_NUMBER = "phone_number";
     public static final String XML_ATTRIBUTE_CALL_STATE = "phone_state";
     public static final String XML_ATTRIBUTE_TODO = "todo";
-
     public static final String XML_ATTRIBUTE_CALLER_CONTACT_NAME = "caller_contact_name";
 
     /* Call States*/
     private static final String CALL_STATE_HANG_UP = "hang_up";
     private static final String CALL_STATE_RINGING = "ringing";
     private static final String CALL_STATE_DIALING = "dailing";
-    private static final String CALL_STATE_IDLE = "idle";
 
     /*SMS Options*/
     public static final String READ = "read";
@@ -108,6 +112,7 @@ public class MonitorActivity extends Activity implements ActionEventListener, Vi
         phoneNumber = tMgr.getLine1Number();
 
         btnInfo = (Button ) findViewById(R.id.btn_info);
+        btnSettings = (Button ) findViewById(R.id.btn_setting);
 
         fragmentExtras = new Bundle();
 
@@ -147,8 +152,8 @@ public class MonitorActivity extends Activity implements ActionEventListener, Vi
         mainView.post(new Runnable() {
             @Override
             public void run() {
-                ((FrameLayout) mainView).bringChildToFront(btnInfo);
-                setInfoBtnMode(true);
+                ((FrameLayout) mainView).bringChildToFront(mainView.findViewById(R.id.linear_btn));
+                setBtnMode(true);
             }
         });
 
@@ -173,8 +178,8 @@ public class MonitorActivity extends Activity implements ActionEventListener, Vi
         mainView.post(new Runnable() {
             @Override
             public void run() {
-                ((FrameLayout)mainView).bringChildToFront(btnInfo);
-                setInfoBtnMode(false);
+                ((FrameLayout)mainView).bringChildToFront(mainView.findViewById(R.id.linear_btn));
+                setBtnMode(false);
             }
         });
 
@@ -192,7 +197,6 @@ public class MonitorActivity extends Activity implements ActionEventListener, Vi
             @Override
             public void onConnected(int connectionType, Object obj) {
                 if(DEBUG) Log.d(TAG, "Connected");
-                createConnectedNotification(false);
 
                 createConnectedFragment();
             }
@@ -233,10 +237,21 @@ public class MonitorActivity extends Activity implements ActionEventListener, Vi
 
                 cancelConnectionNotification();
 
-                if (!issue.equals(TCPConnection.ISSUE_CLOSED_BY_USER))
-                    createAlertNotification();
+                if (!app.getDataConnection().isServer())
+                {
+                    if (app.prefs.getBoolean(Prefs.USE_CALL_FORWARDING, true))
+                    {
+                        cancelCallForwarding();
+                    }
 
-                unregisterSafely(incomingCallReceiver, "Incoming Call Receiver");
+                    unregisterSafely(incomingCallReceiver, "Incoming Call Receiver");
+                    unregisterSafely(mBatInfoReceiver, "Battery Info Receiver");
+                }
+
+                if (!issue.equals(TCPConnection.ISSUE_CLOSED_BY_USER)) {
+                    createAlertNotification();
+                }
+
             }
         });
     }
@@ -263,8 +278,28 @@ public class MonitorActivity extends Activity implements ActionEventListener, Vi
                     incomingCallReceiver.setFilter("android.intent.action.PHONE_STATE", "android.intent.action.NEW_OUTGOING_CALL");
 
                     registerReceiver(mBatInfoReceiver, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
-                    registerReceiver(incomingCallReceiver, incomingCallReceiver.getFilter());
-                    incomingCallReceiver.setCallsAndSmsReceiver(MonitorActivity.this);
+
+                }
+                else
+                {
+                    // if user want to use call forwarding the server phone send his phone number to the client phone
+                    if (app.prefs.getBoolean(Prefs.USE_CALL_FORWARDING, true))
+                    {
+                        TelephonyManager tMgr = (TelephonyManager)MonitorActivity.this.getSystemService(Context.TELEPHONY_SERVICE);
+                        String mPhoneNumber = tMgr.getLine1Number();
+
+                        if (mPhoneNumber != null)
+                            sendDataXml(XML_TAG_PHONE_DATA, null, new TList<XmlAttr>(new XmlAttr(XML_ATTRIBUTE_TODO, Prefs.USE_CALL_FORWARDING), new XmlAttr(XML_ATTRIBUTE_PHONE_NUMBER, mPhoneNumber)) );
+                        else
+                        {
+                            Toast.makeText(MonitorActivity.this, "Cant use call forwarding for this device", Toast.LENGTH_SHORT).show();
+                            app.prefs.edit().putBoolean(Prefs.USE_CALL_FORWARDING, false).commit();
+                        }
+                    }
+
+                    if (app.prefs.getBoolean(Prefs.USE_SMS_TUNNELING, true)) {
+                        sendDataXml(XML_TAG_PHONE_DATA, null, new TList<XmlAttr>(new XmlAttr(XML_ATTRIBUTE_TODO, Prefs.USE_SMS_TUNNELING)));
+                    }
                 }
             }
 
@@ -305,8 +340,16 @@ public class MonitorActivity extends Activity implements ActionEventListener, Vi
                             cancelConnectionNotification();
                             createAlertNotification();
 
-                            unregisterSafely(incomingCallReceiver, "Incoming Call Receiver");
-                            unregisterSafely(mBatInfoReceiver, "Battery Info Receiver");
+                            if (!app.getDataConnection().isServer())
+                            {
+                                if (app.prefs.getBoolean(Prefs.USE_CALL_FORWARDING, true))
+                                {
+                                    cancelCallForwarding();
+                                }
+                                unregisterSafely(incomingCallReceiver, "Incoming Call Receiver");
+                                unregisterSafely(mBatInfoReceiver, "Battery Info Receiver");
+                            }
+
                         }
                     }
                 }, 3 * 1000);
@@ -338,9 +381,9 @@ public class MonitorActivity extends Activity implements ActionEventListener, Vi
 
                 if (xmlTag.getName().equals(XML_TAG_BATTERY))
                 {
-                    if (DEBUG) Log.d(TAG, "Battery Level Received: " + xmlTag.getAttr(XML_ATTRIBUTE_BATTERY_PERCENTAGE));
+                    if (DEBUG) Log.d(TAG, "Battery Level Received: " + xmlTag.getAttrValue(XML_ATTRIBUTE_BATTERY_PERCENTAGE));
                     batteryPercentage = xmlTag.getAttr(XML_ATTRIBUTE_BATTERY_PERCENTAGE).getValueAsInt();
-                    batteryStatus = xmlTag.getAttr(XML_ATTRIBUTE_BATTERY_STATUS).getValue();
+                    batteryStatus = xmlTag.getAttrValue(XML_ATTRIBUTE_BATTERY_STATUS);
 
                     connectedFragment.setBatteryData(batteryPercentage, batteryStatus );
                 }
@@ -354,12 +397,24 @@ public class MonitorActivity extends Activity implements ActionEventListener, Vi
 
                         if (attr.getValue().equals(CALL_STATE_RINGING))
                             connectedFragment.onIncomingData(
-                                    xmlTag.getAttr(XML_ATTRIBUTE_CALLER_CONTACT_NAME).getValue(),
-                                    xmlTag.getAttr(XML_ATTRIBUTE_PHONE_NUMBER).getValue(), null);
+                                    xmlTag.getAttrValue(XML_ATTRIBUTE_CALLER_CONTACT_NAME),
+                                    xmlTag.getAttrValue(XML_ATTRIBUTE_PHONE_NUMBER), null);
                         else
                             if (attr.getValue().equals(CALL_STATE_HANG_UP))
                                 connectedFragment.dismissIncomingDataPopup();
                         // TODO handle dialing
+                    }
+                    else if (!xmlTag.getAttrValue(XML_ATTRIBUTE_TODO).equals(""))
+                    {
+                        if(xmlTag.getAttrValue(XML_ATTRIBUTE_TODO).equals(Prefs.USE_CALL_FORWARDING) )
+                        {
+                            forwardCalls(xmlTag.getAttrValue(XML_ATTRIBUTE_PHONE_NUMBER));
+                        }
+                        else if (xmlTag.getAttrValue(XML_ATTRIBUTE_TODO).equals(Prefs.USE_SMS_TUNNELING))
+                        {
+                            registerReceiver(incomingCallReceiver, incomingCallReceiver.getFilter());
+                            incomingCallReceiver.setCallsAndSmsReceiver(MonitorActivity.this);
+                        }
                     }
                 }
                 else if (xmlTag.getName().equals(XML_TAG_SMS))
@@ -406,8 +461,9 @@ public class MonitorActivity extends Activity implements ActionEventListener, Vi
         }
 
         btnInfo.setOnClickListener(this);
+        btnSettings.setOnClickListener(this);
 
-        ((FrameLayout)mainView).bringChildToFront(btnInfo);
+        ((FrameLayout)mainView).bringChildToFront(mainView.findViewById(R.id.linear_btn));
     }
 
     @Override
@@ -427,74 +483,6 @@ public class MonitorActivity extends Activity implements ActionEventListener, Vi
     }
 
     /* ---{ Notifications }---*/
-    /** Create an ongoing notification that can terminate the connection or play/stop the sound directly from the notification drawer.*/
-    public void createConnectedNotification(boolean isStreaming){
-
-        if(DEBUG) Log.d(TAG, "createConnectedNotification, " + (isStreaming ? "Streaming" : "not streaming") );
-
-        // Build the notification characteristic.
-        Notification.Builder mBuilder;
-        mBuilder = new Notification.Builder(this)
-                .setSmallIcon(R.drawable.disconnect_btn);
-
-        // The view for the notification
-        RemoteViews contentView= new RemoteViews(this.getPackageName(), R.layout.notification_running_layout);
-
-        // Listener for disconnect button
-        Intent disconnectIntent =new Intent(TCPConnection.ACTION_CLOSE_CONNECTION);
-        PendingIntent disconnectPendingIntent = PendingIntent.getBroadcast(this, 1, disconnectIntent, 0);
-        contentView.setOnClickPendingIntent(R.id.btn_disconnect, disconnectPendingIntent);
-
-        // Listener for play/pause button
-        Intent playStopIntent =new Intent(TCPConnection.ACTION_TOGGLE_CONTROLLER);
-        // Extra which controller to use. Server use sound player client us recorder
-        playStopIntent.putExtra(TCPConnection.CONTROLLER,
-                app.getStreamConnection().isServer() ? TCPConnection.CONTROLLER_SOUND_PLAYER : TCPConnection.CONTROLLER_SOUND_RECORDER);
-        PendingIntent playStopPendingIntent = PendingIntent.getBroadcast(this, 1, playStopIntent, 0);
-
-        if (app.getStreamConnection().isServer())
-        {
-            if (isStreaming)
-                contentView.setImageViewResource(R.id.btn_controller, R.drawable.stop_btn);
-            else
-                contentView.setImageViewResource(R.id.btn_controller, R.drawable.play_btn);
-        }
-        else
-        {
-            if (isStreaming)
-                contentView.setImageViewResource(R.id.btn_controller, R.drawable.stop_btn);
-            else
-                contentView.setImageViewResource(R.id.btn_controller, R.drawable.play_btn);
-        }
-
-        contentView.setOnClickPendingIntent(R.id.btn_controller, playStopPendingIntent);
-
-        // Listener for the text message
-        Intent messageIntent =new Intent(this, MonitorActivity.class);
-        PendingIntent messagePendingIntent = PendingIntent.getActivity(this, 1, messageIntent, 0);
-        contentView.setOnClickPendingIntent(R.id.txt_message, messagePendingIntent);
-
-        // Notification Object from Builder
-        Notification notification;
-
-        if (Build.VERSION.SDK_INT < 16)
-            notification = mBuilder.getNotification();
-        else
-            notification = mBuilder.build();
-
-        // Add flag of ongoing event
-        notification.flags = Notification.FLAG_ONGOING_EVENT;
-        // Set the content view of the notification to the xml.
-        notification.contentView = contentView;
-
-        NotificationManager mNotifyMgr =
-                (NotificationManager) this.getSystemService(NOTIFICATION_SERVICE);
-        // Builds the notification and issues it.
-
-        mNotifyMgr.notify(NOTIFICATION_CONNECTION_ID, notification);
-
-        // TODO add other phone battery power and more data fro notification
-    }
     /** Create and alert notification that the connection has lost.*/
     private void createAlertNotification(){
 
@@ -548,13 +536,65 @@ public class MonitorActivity extends Activity implements ActionEventListener, Vi
         mNotifyMgr.cancel(NOTIFICATION_CONNECTION_ID);
     }
 
-    private void unregisterSafely(BroadcastReceiver receiver, String name){
-        try {
-            unregisterReceiver(receiver);
-        } catch (IllegalArgumentException e) {
-            if (DEBUG) Log.e(TAG, name + " - un registering a receiver that never registered");
+    /* ---{ Popup }---*/
+    private void createSettingsPopup(boolean isConnected){
+        PopupWindow popupWindow = new PopupWindow(this);
+
+        View v = this.getLayoutInflater().inflate(R.layout.pop_settings, null);
+
+        v.findViewById(R.id.btn_cancel_call_forwarding).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (DEBUG) Log.d(TAG, "Cancel Call Forwarding! ");
+                cancelCallForwarding();
+
+            }
+        });
+
+        ((CheckBox)v.findViewById(R.id.chk_box_forward_calls)).setOnCheckedChangeListener(this);
+        ((CheckBox)v.findViewById(R.id.chk_box_get_notifications_about_sms_received)).setOnCheckedChangeListener(this);
+        ((CheckBox)v.findViewById(R.id.chk_box_enable_auto_silent_mode)).setOnCheckedChangeListener(this);
+        ((CheckBox)v.findViewById(R.id.chk_box_enable_auto_restore_phone_audio_mode)).setOnCheckedChangeListener(this);
+
+        ((CheckBox)v.findViewById(R.id.chk_box_forward_calls)).setChecked(app.prefs.getBoolean(Prefs.USE_CALL_FORWARDING, true));
+        ((CheckBox)v.findViewById(R.id.chk_box_get_notifications_about_sms_received)).setChecked(app.prefs.getBoolean(Prefs.USE_SMS_TUNNELING, true));
+        ((CheckBox)v.findViewById(R.id.chk_box_enable_auto_silent_mode)).setChecked(app.prefs.getBoolean(Prefs.AUTO_ENTER_SILENT_MODE, true));
+        ((CheckBox)v.findViewById(R.id.chk_box_enable_auto_restore_phone_audio_mode)).setChecked(app.prefs.getBoolean(Prefs.AUTO_RESTORE_PREV_AUDIO_MODE, true));
+
+        if (isConnected)
+        {
+            ((CheckBox)v.findViewById(R.id.chk_box_forward_calls)).setTextColor(Color.WHITE);
+            ((CheckBox)v.findViewById(R.id.chk_box_get_notifications_about_sms_received)).setTextColor(Color.WHITE);
+            ((CheckBox)v.findViewById(R.id.chk_box_enable_auto_silent_mode)).setTextColor(Color.WHITE);
+            ((CheckBox)v.findViewById(R.id.chk_box_enable_auto_restore_phone_audio_mode)).setTextColor(Color.WHITE);
+
+            ((TextView)v.findViewById(R.id.txt_cancel_call_forwarding_service)).setTextColor(Color.WHITE);
+
+            v.setBackgroundColor(Color.BLACK);
         }
+        else
+        {
+            setupFragment.hideContent();
+
+            popupWindow.setOnDismissListener(new PopupWindow.OnDismissListener() {
+                @Override
+                public void onDismiss() {
+                    setupFragment.showContent();
+                }
+            });
+
+        }
+
+        popupWindow.setContentView(v);
+        popupWindow.setFocusable(true);
+        popupWindow.setOutsideTouchable(true);
+        popupWindow.setBackgroundDrawable(new BitmapDrawable());
+        popupWindow.setWidth((int) (screenSize.x/1.2f));
+        popupWindow.setHeight(v.getLayoutParams().WRAP_CONTENT);
+        popupWindow.setAnimationStyle(R.style.PopupAnimation);
+        popupWindow.showAsDropDown(btnSettings);
     }
+
     /** ---{ Implemented Methods }---*/
     @Override
     public void onClick(View v) {
@@ -569,6 +609,31 @@ public class MonitorActivity extends Activity implements ActionEventListener, Vi
                     if (setupFragment != null)
                         setupFragment.onInfoPressed();
                 }
+                break;
+            case R.id.btn_setting:
+                createSettingsPopup(fragment instanceof ConnectedFragment ? true : false);
+                break;
+        }
+    }
+
+    @Override
+    public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+        switch (buttonView.getId())
+        {
+            case R.id.chk_box_forward_calls:
+                app.prefs.edit().putBoolean(Prefs.USE_CALL_FORWARDING, isChecked).commit();
+                break;
+
+            case R.id.chk_box_enable_auto_silent_mode:
+                app.prefs.edit().putBoolean(Prefs.AUTO_ENTER_SILENT_MODE, isChecked).commit();
+                break;
+
+            case R.id.chk_box_enable_auto_restore_phone_audio_mode:
+                app.prefs.edit().putBoolean(Prefs.AUTO_RESTORE_PREV_AUDIO_MODE, isChecked).commit();
+                break;
+
+            case R.id.chk_box_get_notifications_about_sms_received:
+                app.prefs.edit().putBoolean(Prefs.USE_SMS_TUNNELING, isChecked).commit();
                 break;
         }
     }
@@ -620,7 +685,8 @@ public class MonitorActivity extends Activity implements ActionEventListener, Vi
 
         if (action.equals(TCPConnection.ACTION_TOGGLE_CONTROLLER))
         {
-            createConnectedNotification(intent.getExtras().getBoolean(TCPConnection.CONTROLLER_ACTION_RESULT, false));
+            if (connectedFragment != null)
+                connectedFragment.createConnectedNotification(intent.getExtras().getBoolean(TCPConnection.CONTROLLER_ACTION_RESULT, false));
         }
         else if (action.equals(TCPConnection.ACTION_CLOSE_CONNECTION))
         {
@@ -630,7 +696,7 @@ public class MonitorActivity extends Activity implements ActionEventListener, Vi
     }
     /* ---{ Animation }---*/
         /* Fade in and Fade out given view*/
-    private void  fadeViewIn(final View v){
+    private void fadeViewIn(final View v){
             v.animate().alpha(1f).setDuration(FADE_DURATION).setListener(null);
     }
 
@@ -642,7 +708,7 @@ public class MonitorActivity extends Activity implements ActionEventListener, Vi
     }
 
     // Animate the info button background when moving from connected to disconnected.
-    private void setInfoBtnMode(final boolean connected){
+    private void setBtnMode(final boolean connected){
 
         // Making sure know unnecessary animation will occur.
         if ( (connected && btnInfo.getTag().equals(getResources().getString(R.string.connected))) || (!connected && btnInfo.getTag().equals(getResources().getString(R.string.disconnect))) )
@@ -658,17 +724,42 @@ public class MonitorActivity extends Activity implements ActionEventListener, Vi
             public void onAnimationEnd(Animator animation) {
                 if (connected)
                 {
-                    btnInfo.setBackgroundResource(android.R.color.transparent);
-                    btnInfo.setText("I");
-                    btnInfo.setTextSize(30f);
-                    btnInfo.setTextColor(Color.WHITE);
+                    btnInfo.setBackgroundResource(R.drawable.info_btn_connected_selector);
                     btnInfo.setTag(getResources().getString(R.string.connected));
                 }
                 else
                 {
                     btnInfo.setBackgroundResource(R.drawable.info_btn_selector);
-                    btnInfo.setText("");
                     btnInfo.setTag(getResources().getString(R.string.disconnect));
+                }
+            }
+
+            @Override
+            public void onAnimationCancel(Animator animation) {
+
+            }
+
+            @Override
+            public void onAnimationRepeat(Animator animation) {
+
+            }
+        });
+
+        fadeViewOut(btnSettings, new Animator.AnimatorListener() {
+            @Override
+            public void onAnimationStart(Animator animation) {
+
+            }
+
+            @Override
+            public void onAnimationEnd(Animator animation) {
+                if (connected)
+                {
+                    btnSettings.setBackgroundResource(R.drawable.settings_button_connected_selector);
+                }
+                else
+                {
+                    btnSettings.setBackgroundResource(R.drawable.settings_button_selector);
                 }
             }
 
@@ -687,6 +778,7 @@ public class MonitorActivity extends Activity implements ActionEventListener, Vi
             @Override
             public void run() {
                 fadeViewIn(btnInfo);
+                fadeViewIn(btnSettings);
             }
         }, FADE_DURATION);
 
@@ -714,11 +806,29 @@ public class MonitorActivity extends Activity implements ActionEventListener, Vi
     }
 
     public void forwardCalls(String phoneNumber){
-        String callForwardString = "**21* " + phoneNumber + "#";
-        Intent intentCallForward = new Intent(Intent.ACTION_CALL);
-        Uri uri2 = Uri.fromParts("tel", callForwardString, "#");
-        intentCallForward.setData(uri2);
-        startActivity(intentCallForward);
+        PackageManager pm = getBaseContext().getPackageManager();
+        if(pm.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)) {
+            String callForwardString = "*21* " + phoneNumber + "#";
+            Intent intentCallForward = new Intent(Intent.ACTION_CALL);
+            Uri uri2 = Uri.fromParts("tel", callForwardString, "#");
+            intentCallForward.setData(uri2);
+            startActivity(intentCallForward);
+        }
+        else
+        {
+            if (DEBUG) Log.e(TAG, "Cant Forward Call");
+            Toast.makeText(this, "The device you are using doesn't have call capabilities, So you cannot forward calls to it.", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void cancelCallForwarding(){
+        PackageManager pm = getBaseContext().getPackageManager();
+        if(pm.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)) {
+            Intent intentCallForward = new Intent(Intent.ACTION_CALL);
+            Uri uri2 = Uri.fromParts("tel", "#21#", "#");
+            intentCallForward.setData(uri2);
+            startActivity(intentCallForward);
+        }
     }
 
     private List<String > getXmlTags(){
@@ -793,7 +903,16 @@ public class MonitorActivity extends Activity implements ActionEventListener, Vi
     private void sendDataXml(String name, String text){
         XmlTag xmlTag  = XmlTag.getTag(name, text);
 
-        app.getDataConnection().write(XmlMessage.writeMessage(xmlTag));
+        if (app.getDataConnection().isConnected())
+            app.getDataConnection().write(XmlMessage.writeMessage(xmlTag));
+    }
+
+    private void unregisterSafely(BroadcastReceiver receiver, String name){
+        try {
+            unregisterReceiver(receiver);
+        } catch (IllegalArgumentException e) {
+            if (DEBUG) Log.e(TAG, name + " - un registering a receiver that never registered");
+        }
     }
 
     public void sendDataXml(String name, String text, TList<XmlAttr> attrs){
@@ -804,7 +923,8 @@ public class MonitorActivity extends Activity implements ActionEventListener, Vi
         else xmlTag = XmlTag.getTag(name, text, attrs);
 
         Log.d(TAG, "Attr Amount: " + xmlTag.getAttributes().size() + ", Name: "  + xmlTag.getAttributes().get(0).getName() + xmlTag.getAttributes().get(0).getIndex());
-
-        app.getDataConnection().write(XmlMessage.writeMessage(xmlTag));
+        if (app.getDataConnection().isConnected())
+            app.getDataConnection().write(XmlMessage.writeMessage(xmlTag));
     }
+
 }

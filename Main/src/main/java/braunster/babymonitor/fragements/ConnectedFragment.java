@@ -1,11 +1,17 @@
 package braunster.babymonitor.fragements;
 
+import android.app.Activity;
+import android.app.Notification;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.content.Context;
+import android.content.Intent;
 import android.database.Cursor;
 import android.graphics.Color;
 import android.graphics.drawable.BitmapDrawable;
 import android.media.AudioManager;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
 import android.provider.ContactsContract;
@@ -17,15 +23,17 @@ import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.PopupWindow;
+import android.widget.RemoteViews;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import TCP.connrction_and_threads.TCPConnection;
 import TCP.objects.TList;
 import TCP.xml.objects.XmlAttr;
-import braunster.babymonitor.ConnectedPhoneData;
 import braunster.babymonitor.MonitorActivity;
 import braunster.babymonitor.R;
+import braunster.babymonitor.objects.ConnectedPhoneData;
+import braunster.babymonitor.objects.Prefs;
 
 /**
  * Created by itzik on 5/9/2014.
@@ -34,8 +42,6 @@ public class ConnectedFragment extends BaseFragment implements View.OnClickListe
 
     private static final String TAG = ConnectedFragment.class.getSimpleName();
     private static final boolean DEBUG = true;
-    private static final String PREFS_FIRST_CONNECTION = "prefs.first_connection";
-    private static final String PREFS_AUDIO_MODE = "prefs.audio_mode";
 
     /* Views*/
     private Button btnPlayStop, btnDisconnect;
@@ -67,6 +73,8 @@ public class ConnectedFragment extends BaseFragment implements View.OnClickListe
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
 
         mainView = inflater.inflate(R.layout.fragment_connected, null);
+
+        createConnectedNotification(false);
 
         initViews();
 
@@ -101,7 +109,7 @@ public class ConnectedFragment extends BaseFragment implements View.OnClickListe
                                 {
                                         if (app.getStreamConnection().getAudioController().play())
                                         {
-                                            monitor.createConnectedNotification(true);
+                                            createConnectedNotification(true);
                                             v.setSelected(!v.isSelected());
                                         }
                                         else Toast.makeText(getActivity(), "Cant Play!", Toast.LENGTH_LONG).show();
@@ -110,7 +118,7 @@ public class ConnectedFragment extends BaseFragment implements View.OnClickListe
                                 {
                                         if (app.getStreamConnection().getRecordController().record())
                                         {
-                                            monitor.createConnectedNotification(true);
+                                            createConnectedNotification(true);
                                             v.setSelected(!v.isSelected());
                                         }
                                         else Toast.makeText(getActivity(), "Cant Record!", Toast.LENGTH_LONG).show();
@@ -123,7 +131,7 @@ public class ConnectedFragment extends BaseFragment implements View.OnClickListe
                                 else
                                     app.getStreamConnection().getRecordController().stop();
 
-                                monitor.createConnectedNotification(false);
+                                createConnectedNotification(false);
 
                                 v.setSelected(!v.isSelected());
                             }
@@ -170,13 +178,13 @@ public class ConnectedFragment extends BaseFragment implements View.OnClickListe
             setBatteryData(connectedPhoneData.getBatteryLevel(), connectedPhoneData.getBatteryStatus());
 
         // Making sure the baby phone is in silent mode so incoming data wont wake up the baby.
-        if (app.getStreamConnection().getConnectionType() == TCPConnection.CLIENT)
+        if (app.prefs.getBoolean(Prefs.AUTO_ENTER_SILENT_MODE, true) && app.getStreamConnection().getConnectionType() == TCPConnection.CLIENT)
         {
 //            if(DEBUG) Log.d(TAG, "Phone Audio Mode: " + am.getRingerMode());
             if (am.getRingerMode() != AudioManager.RINGER_MODE_SILENT)
             {
 //                if(DEBUG) Log.d(TAG, "Saving the last mode");
-                app.prefs.edit().putInt(PREFS_AUDIO_MODE, am.getRingerMode()).commit();
+                app.prefs.edit().putInt(Prefs.AUDIO_MODE, am.getRingerMode()).commit();
             }
             am.setRingerMode(AudioManager.RINGER_MODE_SILENT);
         }
@@ -187,11 +195,80 @@ public class ConnectedFragment extends BaseFragment implements View.OnClickListe
         super.onDestroy();
         Log.d(TAG, "OnDestroy");
         // Returning the device audio back to his prev state.
-        if (app.prefs.getInt(PREFS_AUDIO_MODE, -1000) != -1000)
+        if (app.prefs.getBoolean(Prefs.AUTO_RESTORE_PREV_AUDIO_MODE, true) && app.prefs.getInt(Prefs.AUDIO_MODE, -1000) != -1000)
         {
 //            if(DEBUG) Log.d(TAG, "Putting the phone back to prev state: " + app.prefs.getInt(PREFS_AUDIO_MODE, 0));
-            am.setRingerMode(app.prefs.getInt(PREFS_AUDIO_MODE, 0));
+            am.setRingerMode(app.prefs.getInt(Prefs.AUDIO_MODE, 0));
         }
+    }
+
+    /** Create an ongoing notification that can terminate the connection or play/stop the sound directly from the notification drawer.*/
+    public void createConnectedNotification(boolean isStreaming){
+
+        if(DEBUG) Log.d(TAG, "createConnectedNotification, " + (isStreaming ? "Streaming" : "not streaming") );
+
+        // Build the notification characteristic.
+        Notification.Builder mBuilder;
+        mBuilder = new Notification.Builder(getActivity())
+                .setSmallIcon(R.drawable.disconnect_btn);
+
+        // The view for the notification
+        RemoteViews contentView= new RemoteViews(getActivity().getPackageName(), R.layout.notification_running_layout);
+
+        // Listener for disconnect button
+        Intent disconnectIntent =new Intent(TCPConnection.ACTION_CLOSE_CONNECTION);
+        PendingIntent disconnectPendingIntent = PendingIntent.getBroadcast(getActivity(), 1, disconnectIntent, 0);
+        contentView.setOnClickPendingIntent(R.id.btn_disconnect, disconnectPendingIntent);
+
+        // Listener for play/pause button
+        Intent playStopIntent =new Intent(TCPConnection.ACTION_TOGGLE_CONTROLLER);
+        // Extra which controller to use. Server use sound player client us recorder
+        playStopIntent.putExtra(TCPConnection.CONTROLLER,
+                app.getStreamConnection().isServer() ? TCPConnection.CONTROLLER_SOUND_PLAYER : TCPConnection.CONTROLLER_SOUND_RECORDER);
+        PendingIntent playStopPendingIntent = PendingIntent.getBroadcast(getActivity(), 1, playStopIntent, 0);
+
+        if (app.getStreamConnection().isServer())
+        {
+            if (isStreaming)
+                contentView.setImageViewResource(R.id.btn_controller, R.drawable.stop_btn);
+            else
+                contentView.setImageViewResource(R.id.btn_controller, R.drawable.play_btn);
+        }
+        else
+        {
+            if (isStreaming)
+                contentView.setImageViewResource(R.id.btn_controller, R.drawable.stop_btn);
+            else
+                contentView.setImageViewResource(R.id.btn_controller, R.drawable.play_btn);
+        }
+
+        contentView.setOnClickPendingIntent(R.id.btn_controller, playStopPendingIntent);
+
+        // Listener for the text message
+        Intent messageIntent =new Intent(getActivity(), MonitorActivity.class);
+        PendingIntent messagePendingIntent = PendingIntent.getActivity(getActivity(), 1, messageIntent, 0);
+        contentView.setOnClickPendingIntent(R.id.txt_message, messagePendingIntent);
+
+        // Notification Object from Builder
+        Notification notification;
+
+        if (Build.VERSION.SDK_INT < 16)
+            notification = mBuilder.getNotification();
+        else
+            notification = mBuilder.build();
+
+        // Add flag of ongoing event
+        notification.flags = Notification.FLAG_ONGOING_EVENT;
+        // Set the content view of the notification to the xml.
+        notification.contentView = contentView;
+
+        NotificationManager mNotifyMgr =
+                (NotificationManager) getActivity().getSystemService(Activity.NOTIFICATION_SERVICE);
+        // Builds the notification and issues it.
+
+        mNotifyMgr.notify(MonitorActivity.NOTIFICATION_CONNECTION_ID, notification);
+
+        // TODO add other phone battery power and more data fro notification
     }
 
     public void setBatteryData(int level, String status) {
@@ -223,7 +300,7 @@ public class ConnectedFragment extends BaseFragment implements View.OnClickListe
     }
 
     private void createWhenConnectedInfoPopup(){
-        View v = getActivity().getLayoutInflater().inflate(R.layout.info_popup_layout, null);
+        View v = getActivity().getLayoutInflater().inflate(R.layout.popup_info_layout, null);
 
         ((TextView)v.findViewById(R.id.txt)).setText("Disconnect button. There's about 5 seconds delay till the other phone get notified that you disconnected.");
         ((TextView)v.findViewById(R.id.txt)).setGravity(Gravity.LEFT);
@@ -239,7 +316,7 @@ public class ConnectedFragment extends BaseFragment implements View.OnClickListe
         disconnectPopUp.showAsDropDown(btnDisconnect);
 
 
-        View v2 = getActivity().getLayoutInflater().inflate(R.layout.info_popup_layout, null);
+        View v2 = getActivity().getLayoutInflater().inflate(R.layout.popup_info_layout, null);
 
         ((TextView)v2.findViewById(R.id.txt)).setText("Play/Stop Button.");
         ((TextView)v2.findViewById(R.id.txt)).setGravity(Gravity.LEFT);
@@ -256,6 +333,9 @@ public class ConnectedFragment extends BaseFragment implements View.OnClickListe
     }
 
     private void createIncomingDataPopup(String contactName, final String contactNumber, final String text){
+        if (incomingDataPopup != null && incomingDataPopup.isShowing())
+            incomingDataPopup.dismiss();
+
         View v = getActivity().getLayoutInflater().inflate(R.layout.popup_incoming_call, null);
 
         ((TextView)v.findViewById(R.id.txt_caller_name)).setText(contactName + " - " + contactNumber);
@@ -312,16 +392,16 @@ public class ConnectedFragment extends BaseFragment implements View.OnClickListe
         incomingDataPopup.setFocusable(true);
         incomingDataPopup.setOutsideTouchable(true);
         incomingDataPopup.setBackgroundDrawable(new BitmapDrawable());
-        incomingDataPopup.setWidth((int) (screenSize.x/1.5f));
+        incomingDataPopup.setWidth((int) (screenSize.x/1.2f));
         incomingDataPopup.setHeight(v.getLayoutParams().WRAP_CONTENT);
         incomingDataPopup.setAnimationStyle(R.style.PopupAnimation);
         incomingDataPopup.showAtLocation(mainView, Gravity.CENTER, 0, 0);
     }
 
     private void firstConnection(){
-        if (PreferenceManager.getDefaultSharedPreferences(getActivity()).getBoolean(PREFS_FIRST_CONNECTION, true))
+        if (PreferenceManager.getDefaultSharedPreferences(getActivity()).getBoolean(Prefs.FIRST_CONNECTION, true))
         {
-            PreferenceManager.getDefaultSharedPreferences(getActivity()).edit().putBoolean(PREFS_FIRST_CONNECTION, false).commit();
+            PreferenceManager.getDefaultSharedPreferences(getActivity()).edit().putBoolean(Prefs.FIRST_CONNECTION, false).commit();
 
             createWhenConnectedInfoPopup();
         }

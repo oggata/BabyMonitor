@@ -7,14 +7,28 @@
     tools:ignore="MergeRootFrame" >
 
 
-    <Button
-        android:layout_width="48dp"
-        android:layout_height="48dp"
-        android:id="@+id/btn_info"
-        android:layout_gravity="right"
-        android:background="@drawable/info_btn_selector"
-        android:padding="10dp"
-        android:tag="@string/disconnect"
-        android:layout_margin="10dp"/>
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:id="@+id/linear_btn"
+        android:layout_gravity="right">
 
-    </FrameLayout>
+        <Button
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:id="@+id/btn_setting"
+            android:background="@drawable/settings_button_selector"
+            android:layout_margin="5dp"/>
+
+        <Button
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:id="@+id/btn_info"
+            android:background="@drawable/info_btn_selector"
+            android:tag="@string/disconnect"
+            android:layout_margin="5dp"/>
+
+    </LinearLayout>
+
+</FrameLayout>

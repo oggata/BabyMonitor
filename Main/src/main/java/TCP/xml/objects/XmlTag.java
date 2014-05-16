@@ -146,7 +146,7 @@ public class XmlTag {
             if (name.equals(attr.getName()))
                 return attr.getValue();
 
-        return null;
+        return "";
     }
 
 }

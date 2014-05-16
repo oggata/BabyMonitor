@@ -368,7 +368,7 @@ public class TCPConnection {
         return false;
     }
 
-    public boolean write(String message){
+    public boolean write(String message) throws IllegalStateException {
         validate("write");
 
         if (messenger == null || messenger.isClosed()) { initMessenger(); }

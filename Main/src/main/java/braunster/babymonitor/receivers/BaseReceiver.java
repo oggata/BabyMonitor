@@ -13,7 +13,7 @@ import TCP.objects.TList;
 import TCP.xml.objects.XmlAttr;
 import TCP.xml.objects.XmlMessage;
 import TCP.xml.objects.XmlTag;
-import braunster.babymonitor.BabyMonitorAppObj;
+import braunster.babymonitor.objects.BabyMonitorAppObj;
 
 /**
  * Created by itzik on 5/14/2014.
@@ -22,7 +22,7 @@ public class BaseReceiver extends BroadcastReceiver {
 
     private static final String TAG = BaseReceiver.class.getSimpleName();
     private static final boolean DEBUG = true;
-    private BabyMonitorAppObj app = BabyMonitorAppObj.getInstance();
+    BabyMonitorAppObj app = BabyMonitorAppObj.getInstance();
     Context context;
     IntentFilter filter;
     Intent intent;
@@ -79,7 +79,7 @@ public class BaseReceiver extends BroadcastReceiver {
         else xmlTag = XmlTag.getTag(name, text, attrs);
 
         Log.d(TAG, "Attr Amount: " + xmlTag.getAttributes().size() + ", Name: "  + xmlTag.getAttributes().get(0).getName() + xmlTag.getAttributes().get(0).getIndex());
-
-        app.getDataConnection().write(XmlMessage.writeMessage(xmlTag));
+        if (app.getDataConnection().isConnected())
+            app.getDataConnection().write(XmlMessage.writeMessage(xmlTag));
     }
 }

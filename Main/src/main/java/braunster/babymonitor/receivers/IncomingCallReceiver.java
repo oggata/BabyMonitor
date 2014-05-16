@@ -2,6 +2,7 @@ package braunster.babymonitor.receivers;
 
 import android.content.Context;
 import android.content.Intent;
+import android.preference.PreferenceManager;
 import android.telephony.PhoneStateListener;
 import android.telephony.TelephonyManager;
 import android.util.Log;
@@ -16,47 +17,12 @@ public class IncomingCallReceiver extends BaseReceiver {
     private static int IN_CALL = 2;
     private int callState = IDLE;
 
-
-
-
-
     @Override
     public void onReceive(Context context, Intent intent) {
         super.onReceive(context, intent);
         if (DEBUG) Log.d(TAG, "onReceived");
-
-        /*switch (getResultCode())
-        {
-            case SmsManager.RESULT_ERROR_GENERIC_FAILURE:
-                Toast.makeText(context, "Generic failure",
-                        Toast.LENGTH_SHORT).show();
-                break;
-            case SmsManager.RESULT_ERROR_NO_SERVICE:
-                Toast.makeText(context, "No service",
-                        Toast.LENGTH_SHORT).show();
-                break;
-            case SmsManager.RESULT_ERROR_NULL_PDU:
-                Toast.makeText(context, "Null PDU",
-                        Toast.LENGTH_SHORT).show();
-                break;
-            case SmsManager.RESULT_ERROR_RADIO_OFF:
-                Toast.makeText(context, "Radio off",
-                        Toast.LENGTH_SHORT).show();
-                break;
-            case Activity.RESULT_OK:
-                Toast.makeText(context, "SMS delivered",
-                        Toast.LENGTH_SHORT).show();
-                break;
-            case Activity.RESULT_CANCELED:
-                Toast.makeText(context, "SMS not delivered",
-                        Toast.LENGTH_SHORT).show();
-                break;
-        }*/
-
-        context = context;
-        intent = intent;
         TelephonyManager tm = (TelephonyManager) context.getSystemService(Context.TELEPHONY_SERVICE);
-        int events = PhoneStateListener.LISTEN_CALL_STATE;
+        int events = PhoneStateListener.LISTEN_CALL_STATE | PhoneStateListener.LISTEN_CALL_FORWARDING_INDICATOR;
         tm.listen(phoneStateListener, events);
     }
 
@@ -94,6 +60,13 @@ public class IncomingCallReceiver extends BaseReceiver {
             }
 
             super.onCallStateChanged(state, incomingNumber);
+        }
+
+        @Override
+        public void onCallForwardingIndicatorChanged(boolean cfi) {
+            Log.i(TAG,"onCallForwardingIndicatorChanged  CFI ="+cfi);
+            PreferenceManager.getDefaultSharedPreferences(context).edit().putBoolean("CALL_FORWARD_ACTIVE", cfi).commit();
+            super.onCallForwardingIndicatorChanged(cfi);
         }
     };
 

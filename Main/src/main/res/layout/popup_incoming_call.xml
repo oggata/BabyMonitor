@@ -42,22 +42,22 @@
         android:padding="20dp">
 
         <Button
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
             android:background="@drawable/reply_button_selector"
             android:layout_marginLeft="10dp"
             android:id="@+id/btn_reply"/>
 
         <Button
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
             android:background="@drawable/call_button_selector"
             android:layout_marginLeft="10dp"
             android:id="@+id/btn_call"/>
 
         <Button
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
             android:background="@drawable/dismiss_button_selector"
             android:layout_marginLeft="10dp"
             android:layout_marginRight="10dp"
