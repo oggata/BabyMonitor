@@ -1,7 +1,5 @@
 package braunster.babymonitor.fragements;
 
-import android.animation.Animator;
-import android.animation.AnimatorListenerAdapter;
 import android.graphics.drawable.BitmapDrawable;
 import android.os.Bundle;
 import android.util.Log;
@@ -13,8 +11,6 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.PopupWindow;
-import android.widget.RadioButton;
-import android.widget.RadioGroup;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -30,7 +26,7 @@ import braunster.babymonitor.objects.Prefs;
 /**
  * A placeholder fragment containing a simple view.
  */
-public  class SetupFragment extends BaseFragment implements View.OnClickListener {
+public  class SetupFragment extends BaseFragment {
 
     // TODO wifi disabling closing only one connctin and the other connection doesn't reckon it.
     // TODO create ALERT notification only if app is not showing - Not Sure
@@ -50,14 +46,11 @@ public  class SetupFragment extends BaseFragment implements View.OnClickListener
 
     /* Views*/
     private LinearLayout liServerClientBtn;
-    private Button btnServer, btnClient, btnSetting;
+    private Button btnServer, btnClient;
     private TextView txtIp, txtBatterLevel;
     private EditText etIp, etServerPort;
 
-    private PopupWindow settingPopUp, serverDialog, clientDialog, infoDialog;
-
-    public SetupFragment() {
-    }
+    private PopupWindow serverDialog, clientDialog, infoDialog;
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
@@ -118,8 +111,6 @@ public  class SetupFragment extends BaseFragment implements View.OnClickListener
                 firstLogin();
             }
         });
-
-        btnSetting.setOnClickListener(this);
 
         btnServer.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -198,6 +189,11 @@ public  class SetupFragment extends BaseFragment implements View.OnClickListener
         });
     }
 
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+    }
+
     private void viewsInit(){
 
         // Linear Layout
@@ -206,7 +202,6 @@ public  class SetupFragment extends BaseFragment implements View.OnClickListener
         // Buttons - Server & Client Connection - Disconnect - Control
         btnServer = (Button) mainView.findViewById(R.id.btn_start_server);
         btnClient = (Button) mainView.findViewById(R.id.btn_start_client);
-        btnSetting = (Button) mainView.findViewById(R.id.btn_audio_setting);
 
         // EditText - Server Data
         etIp = (EditText) mainView.findViewById(R.id.et_server_ip);
@@ -216,90 +211,16 @@ public  class SetupFragment extends BaseFragment implements View.OnClickListener
         txtIp = (TextView) mainView.findViewById(R.id.txt_phone_ip);
         txtBatterLevel = (TextView) mainView.findViewById(R.id.txt_battery_level);
     }
-
-    @Override
-    public void onClick(final View v) {
-
-        switch (v.getId())
-        {
-
-            case R.id.btn_audio_setting:
-                createSettingsPopup();
-                break;
-        }
-    }
-
-    @Override
-    public void onInfoPressed() {
-        super.onInfoPressed();
-        createHowToConnectPopup();
-    }
-
     /*
         * --- PopUps ----
                            */
-    private void createSettingsPopup(){
-
-        settingPopUp = new PopupWindow(getActivity());
-
-        View v = getActivity().getLayoutInflater().inflate(R.layout.popup_audio_setting_layout, null);
-
-        final RadioGroup radioGrp = (RadioGroup) v.findViewById(R.id.radio_grp_samples);
-        RadioButton radio;
-
-        // Showing the user all his available SampleRates
-        for ( int rate : AudioStreamController.getSupportedSampleRates())
-        {
-            radio = new RadioButton(getActivity());
-
-            if (rate == AudioStreamController.sampleRate)
-                radio.setChecked(true);
-
-            radio.setText(String.valueOf(rate));
-            radio.setId(rate);
-            radioGrp.addView(radio);
-        }
-
-        radioGrp.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(RadioGroup group, final int checkedId) {
-
-                AudioStreamController.sampleRate = checkedId;
-
-                app.prefs.edit().putInt(Prefs.SAMPLE_RATE, checkedId).commit();
-
-                // Small delay so the user will see what he picked.
-                mainView.postDelayed(new Runnable() {
-                    @Override
-                    public void run() {
-                        settingPopUp.dismiss();
-                    }
-                }, 300);
-            }
-        });
-
-        settingPopUp.setOnDismissListener(new PopupWindow.OnDismissListener() {
-            @Override
-            public void onDismiss() {
-                showContent();
-            }
-        });
-
-        settingPopUp.setContentView(v);
-        settingPopUp.setOutsideTouchable(true);
-        settingPopUp.setFocusable(true);
-        settingPopUp.setBackgroundDrawable(new BitmapDrawable());
-        settingPopUp.setWidth(v.getLayoutParams().WRAP_CONTENT);
-        settingPopUp.setHeight(v.getLayoutParams().WRAP_CONTENT);
-        settingPopUp.setAnimationStyle(R.style.PopupAnimation);
-
-        hideContent();
-
-        settingPopUp.showAsDropDown(btnSetting);
-
+    @Override
+    public void createInfoPopup(boolean connected) {
+        super.createInfoPopup(connected);
+        createHowToConnectPopup();
     }
 
-    private void createHowToConnectPopup(){
+    public void createHowToConnectPopup(){
         View v = getActivity().getLayoutInflater().inflate(R.layout.popup_info_layout, null);
 
         ((TextView)v.findViewById(R.id.txt)).setText("Enter the ip address of the phone you want to place in the baby room." +
@@ -391,30 +312,8 @@ public  class SetupFragment extends BaseFragment implements View.OnClickListener
         btnClient.setSelected(false);
         btnServer.setSelected(false);
     }
-    /* ----- Animation ----*/
-        /* Fade in and Fade out given view*/
-    private void  fadeViewIn(final View v){
 
-        v.setAlpha(0f);
-        v.setVisibility(View.VISIBLE);
-
-        v.animate().alpha(1f).setDuration(FADE_DURATION).setListener(null);
-    }
-    private void fadeViewOut(final View v){
-
-        v.animate()
-                .alpha(0f)
-                .setDuration(FADE_DURATION)
-                .setListener(new AnimatorListenerAdapter() {
-                    @Override
-                    public void onAnimationEnd(Animator animation) {
-                        v.setVisibility(View.VISIBLE);
-                    }
-                });
-    }
-
-        /* ----- Show/Hide Views ----*/
-
+    /* ----- Show/Hide Views ----*/
     /*Server And Client Buttons*/
     private void showServerClientButtons(){
         fadeViewIn(liServerClientBtn);
@@ -428,20 +327,24 @@ public  class SetupFragment extends BaseFragment implements View.OnClickListener
         btnClient.setEnabled(false);
         btnServer.setEnabled(false);
     }
-
+    /*All content*/
+    @Override
     public void showContent(){
+        super.showContent();
         fadeViewIn(mainView.findViewById(R.id.linear_content));
 
         btnClient.setEnabled(true);
         btnServer.setEnabled(true);
     }
-
+    @Override
     public void hideContent(){
+        super.hideContent();
         fadeViewOut(mainView.findViewById(R.id.linear_content));
 
         btnClient.setEnabled(false);
         btnServer.setEnabled(false);
     }
+
     /*--- First Cases ---*/
     private void firstLogin(){
 

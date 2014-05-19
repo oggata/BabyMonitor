@@ -2,38 +2,20 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context="braunster.babymonitor.MonitorActivity$PlaceholderFragment"
-    android:background="@drawable/background_transition"
+    tools:context="braunster.babymonitor.activities.MonitorActivity$PlaceholderFragment"
+    android:background="@color/app_grey"
     android:orientation="vertical">
 
     <RelativeLayout
         android:layout_width="fill_parent"
         android:layout_height="fill_parent">
 
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:id="@+id/linear_top"
-            android:layout_margin="5dp">
-
-            <Button
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:id="@+id/btn_audio_setting"
-                android:layout_gravity="left"
-                android:background="@drawable/setting_btn_selector"
-                android:tag="@string/disconnect" />
-        </LinearLayout>
-
         <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:id="@+id/linear_content"
-            android:layout_centerHorizontal="true"
-            android:layout_below="@id/linear_top">
+            android:layout_centerHorizontal="true">
 
                 <TextView
                     android:layout_width="wrap_content"
@@ -42,7 +24,7 @@
                     android:textSize="20dp"
                     android:typeface="monospace"
                     android:id="@+id/txt_phone_ip"
-                    android:layout_marginLeft="5dp"
+                    android:layout_marginTop="5dp"
                     android:layout_gravity="center_horizontal"/>
 
                 <LinearLayout
@@ -51,7 +33,6 @@
                     android:layout_height="wrap_content"
                     android:layout_gravity="center_horizontal"
                     android:id="@+id/linear_client_server_select_buttons"
-                    android:layout_marginTop="20dp"
                     android:padding="20dp">
 
 

@@ -18,4 +18,6 @@
     <color name="black">#000000</color>
 
     <color name="background_color">#2B2B2B</color>
+    <color name="app_grey">#AAAAAA</color>
+    <color name="app_dark_grey">#5e5b5b</color>
 </resources>

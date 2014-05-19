@@ -8,7 +8,7 @@ import android.util.Log;
 
 import TCP.objects.TList;
 import TCP.xml.objects.XmlAttr;
-import braunster.babymonitor.MonitorActivity;
+import braunster.babymonitor.activities.MonitorActivity;
 import braunster.babymonitor.objects.Prefs;
 
 /**

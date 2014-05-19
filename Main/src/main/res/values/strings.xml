@@ -3,9 +3,12 @@
 
     <string name="app_name">BabyMonitor</string>
     <string name="hello_world">Hello world!</string>
-    <string name="action_settings">Settings</string>
     <string name="disconnect">Disconnect</string>
     <string name="connected">Connected</string>
     <string name="notification_text_explain">Baby Monitor is running</string>
 
+    <string name="action_settings">Settings</string>
+    <string name="action_audio_settings">Audio Settings</string>
+    <string name="action_call_log">Calls Log</string>
+    <string name="action_info">Info</string>
 </resources>

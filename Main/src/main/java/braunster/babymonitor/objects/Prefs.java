@@ -17,7 +17,11 @@ public class Prefs {
     public static final String AUDIO_MODE = "prefs.audio_mode";
 
     /* Settings*/
+
+    /** if the app is using this feature depends on the parent have,
+    *  if this feature is enabled the server will send a message to the client asking to forward calls to the server phone   */
     public static final String USE_CALL_FORWARDING = "prefs.use_call_forwarding";
+
     public static final String AUTO_ENTER_SILENT_MODE = "prefs.auto_enter_silent_mode";
     public static final String AUTO_RESTORE_PREV_AUDIO_MODE = "prefs.restore_prev_mode";
     public static final String USE_SMS_TUNNELING = "prefs.use_sms_tunneling";

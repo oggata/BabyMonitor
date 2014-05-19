@@ -27,6 +27,7 @@ import TCP.interfaces.IncomingDataListener;
 import TCP.interfaces.WifiStatesListener;
 import TCP.interfaces.onConnectionLostListener;
 import TCP.objects.InOutStreams;
+import TCP.objects.Session;
 import TCP.xml.objects.XmlMessage;
 import TCP.xml.objects.XmlTag;
 
@@ -92,6 +93,7 @@ public class TCPConnection {
     public static final String ISSUE_STREAM_FAILED = "connection.issue.stream_failed";
     public static final String ISSUE_CLOSED_BY_USER = "connection.issue.connection_was_closed_by_user";
     public static final String ISSUE_OPENING_A_SERVER = "connection.issue.opening_a_serer";
+    public static final String ISSUE_END_POINT_CLOSED = "connection.issue.end_point_send_closing_messgae";
 
     /*Connection Types*/
     public static final int CLIENT = 9000;
@@ -119,6 +121,8 @@ public class TCPConnection {
     private TCPMessenger messenger;
     private TCPXmlReader xmlReader;
     private TCPStringReader stringReader;
+
+    private Session session;
 
     /* Threads*/
 //    private TCPCommThread commThread;
@@ -199,6 +203,8 @@ public class TCPConnection {
 
                         connectionStatus = CONNECTED;
 
+                        session = new Session();
+
                         dispatchConnectionChangedStateEvent(ConnectionStateChangeListener.TYPE_CONNECTED, null);
                         dispatchConnectionChangedStateEvent(ConnectionStateChangeListener.TYPE_STATE, null);
 
@@ -215,6 +221,9 @@ public class TCPConnection {
                         // Catch connection checks
                         if (xmlTag.getChildren().size() == 0 && xmlTag.getName().equals(XmlMessage.XML_TAG_CHECK))
                         { if (DEBUG) Log.d(TAG, "Check Message Received: " + xmlTag.getName()); return; }
+                        // Catch connection closing
+                        if (xmlTag.getChildren().size() == 0 && xmlTag.getName().equals(XmlMessage.XML_TAG_CLOSING))
+                        { if (DEBUG) Log.d(TAG, "Closing Message Received: " + xmlTag.getName()); close(ISSUE_END_POINT_CLOSED); return; }
 
                         if (DEBUG) Log.d(TAG, "Xml Data Received: " + xmlTag.getChildren().size());
 
@@ -396,6 +405,9 @@ public class TCPConnection {
     public void close(){
         if (DEBUG) Log.i(TAG, "Closing Connection, Connection Type: " + connectionType );
 
+        if (session != null)
+            session.close();
+
         connectionStatus = DISCONNECTED;
 
         stopConnectionThread();
@@ -427,7 +439,8 @@ public class TCPConnection {
 
     /** @deprecated this method is detracted till Library will be more stable */
     public void Terminate(){
-        close();
+        if (DEBUG) Log.i(TAG, "Terminate");
+        close(ISSUE_CLOSED_BY_USER);
 
         unregisterActionReceiver();
 
@@ -477,7 +490,11 @@ public class TCPConnection {
     /** Close the connection when an issue occur and notify the onConnectionLost listener so the disconnection could be handled.*/
     private void close(String issue){
 
+        if (DEBUG) Log.d(TAG, "Close, Issue: " + issue);
         String prevStatus = connectionStatus;
+
+        if (issue.equals(ISSUE_CLOSED_BY_USER))
+            write(XmlMessage.getClosingMessage());
 
         close();
 
@@ -570,7 +587,7 @@ public class TCPConnection {
                     break;
 
                 case ConnectionStateChangeListener.TYPE_CONNECTED:
-                    connectionStateChangeListener.onConnected(connectionType, tag);
+                    connectionStateChangeListener.onConnected(connectionType, tag, session.getId());
                     break;
 
                 case ConnectionStateChangeListener.TYPE_FAILED:

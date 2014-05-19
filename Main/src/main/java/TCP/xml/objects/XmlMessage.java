@@ -23,9 +23,55 @@ public class XmlMessage {
     private static StringWriter writer;
 
     public static final String XML_TAG_CHECK = "check";
+    public static final String XML_TAG_CLOSING = "closing";
+
+    public static final String XML_TAG_STREAM = "Stream";
+    public static final String XML_ATTR_REQUEST = "request";
+    public static final String XML_ATTR_STATE = "state";
+    public static final String XML_ATTR_STREAM_TYPE = "stream_type";
+    public static final String XML_ATTR_SET_STATE = "set_state";
+    public static final String XML_ATTR_GET_STATE = "get_state";
+
+    public static final String STATE_ON = "on";
+    public static final String STATE_OFF = "off";
+
+    public static final String TYPE_AUDIO = "audio";
+    public static final String TYPE_RECORD = "record";
 
     public static String getCheckMessage(){
-        return writeMessage( XmlTag.getTag( "check", "hello", new TList<XmlAttr>(new XmlAttr( "time", String.valueOf(System.currentTimeMillis()) ) ) ) );
+        return writeMessage( XmlTag.getTag( XML_TAG_CHECK, "hello", new TList<XmlAttr>(new XmlAttr( "time", String.valueOf(System.currentTimeMillis()) ) ) ) );
+    }
+
+    public static String getClosingMessage(){
+        return writeMessage( XmlTag.getTag( XML_TAG_CLOSING, "issue", new TList<XmlAttr>(new XmlAttr( "time", String.valueOf(System.currentTimeMillis()) ) ) ) );
+    }
+
+    public static String getStopAudioStreamMessage(){
+        return writeMessage( XmlTag.getTag( XML_TAG_STREAM, new TList<XmlAttr>(
+                                                                            new XmlAttr( XML_ATTR_REQUEST, XML_ATTR_SET_STATE),
+                                                                            new XmlAttr( XML_ATTR_STATE, STATE_OFF),
+                                                                            new XmlAttr( XML_ATTR_STREAM_TYPE, TYPE_AUDIO)) ) );
+    }
+
+    public static String getStartAudioStreamMessage(){
+        return writeMessage( XmlTag.getTag( XML_TAG_STREAM, new TList<XmlAttr>(
+                new XmlAttr( XML_ATTR_REQUEST, XML_ATTR_SET_STATE),
+                new XmlAttr( XML_ATTR_STATE, STATE_ON),
+                new XmlAttr( XML_ATTR_STREAM_TYPE, TYPE_AUDIO)) ) );
+    }
+
+    public static String getStopRecordStreamMessage(){
+        return writeMessage( XmlTag.getTag( XML_TAG_STREAM, new TList<XmlAttr>(
+                new XmlAttr( XML_ATTR_REQUEST, XML_ATTR_SET_STATE),
+                new XmlAttr( XML_ATTR_STATE, STATE_OFF),
+                new XmlAttr( XML_ATTR_STREAM_TYPE, TYPE_RECORD)) ) );
+    }
+
+    public static String getStartRecordStreamMessage(){
+        return writeMessage( XmlTag.getTag( XML_TAG_STREAM, new TList<XmlAttr>(
+                new XmlAttr( XML_ATTR_REQUEST, XML_ATTR_SET_STATE),
+                new XmlAttr( XML_ATTR_STATE, STATE_ON),
+                new XmlAttr( XML_ATTR_STREAM_TYPE, TYPE_RECORD)) ) );
     }
 
     public static String writeMessage(XmlTag tag){

@@ -1,52 +1,69 @@
 <?xml version="1.0" encoding="utf-8"?>
 
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:orientation="vertical"
     android:background="@color/black">
 
-    <Button
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:background="@drawable/disconnect_btn_selector"
-        android:id="@+id/btn_disconnect"
-        android:layout_alignParentTop="true"
-        android:layout_centerHorizontal="true"
-        android:layout_margin="20dp"/>
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:id="@+id/relative_contents">
+        <Button
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@drawable/disconnect_btn_selector"
+            android:id="@+id/btn_disconnect"
+            android:layout_margin="20dp"
+            android:layout_centerHorizontal="true"/>
 
-    <Button
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:background="@drawable/play_stop_btn_selector"
-        android:layout_centerHorizontal="true"
-        android:layout_alignParentBottom="true"
-        android:id="@+id/btn_stop_play"
-        android:layout_margin="20dp"/>
+        <Button
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@drawable/play_stop_btn_selector"
+            android:layout_centerHorizontal="true"
+            android:layout_alignParentBottom="true"
+            android:id="@+id/btn_stop_play"
+            android:layout_margin="20dp"/>
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Battery Percentage"
-        android:textColor="@color/white"
-        android:id="@+id/txt_battery_level"
-        android:textStyle="bold"
-        android:textSize="30dp"
-        android:layout_centerInParent="true"
-        android:typeface="monospace"
-        android:visibility="gone"/>
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Battery Percentage"
+            android:textColor="@color/white"
+            android:id="@+id/txt_battery_level"
+            android:textStyle="bold"
+            android:textSize="30dp"
+            android:layout_centerInParent="true"
+            android:typeface="monospace"
+            android:visibility="gone"/>
 
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Battery Status"
+            android:textColor="@color/white"
+            android:id="@+id/txt_battery_status"
+            android:textStyle="bold"
+            android:textSize="30dp"
+            android:layout_below="@+id/txt_battery_level"
+            android:layout_centerInParent="true"
+            android:typeface="monospace"
+            android:visibility="gone"/>
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Battery Status"
-        android:textColor="@color/white"
-        android:id="@+id/txt_battery_status"
-        android:textStyle="bold"
-        android:textSize="30dp"
-        android:layout_below="@+id/txt_battery_level"
-        android:layout_centerInParent="true"
-        android:typeface="monospace"
-        android:visibility="gone"/>
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Battery Status"
+            android:textColor="@color/white"
+            android:id="@+id/txt_temperature"
+            android:textStyle="bold"
+            android:textSize="30dp"
+            android:layout_below="@+id/txt_battery_status"
+            android:layout_centerInParent="true"
+            android:typeface="monospace"
+            android:visibility="gone"/>
+    </RelativeLayout>
 
-</RelativeLayout>
+</LinearLayout>
