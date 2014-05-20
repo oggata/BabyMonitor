@@ -5,6 +5,8 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.preference.PreferenceManager;
 
+import com.bugsense.trace.BugSenseHandler;
+
 import TCP.connrction_and_threads.TCPConnection;
 import braunster.babymonitor.database.CallsDataSource;
 
@@ -34,7 +36,7 @@ public class BabyMonitorAppObj extends Application {
         prefs = PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
 
         callsDataSource = new CallsDataSource(getApplicationContext());
-//        BugSenseHandler.initAndStartSession(getApplicationContext(), APIKEY);
+        BugSenseHandler.initAndStartSession(getApplicationContext(), APIKEY);
 
         streamConnection = new TCPConnection(getApplicationContext());
         dataConnection = new TCPConnection(getApplicationContext());

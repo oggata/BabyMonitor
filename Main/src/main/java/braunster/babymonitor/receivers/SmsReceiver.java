@@ -16,7 +16,7 @@ import braunster.babymonitor.objects.Prefs;
  */
 public class SmsReceiver extends BaseReceiver {
     private static final String TAG = SmsReceiver.class.getSimpleName();
-    private static final boolean DEBUG = true;
+    private static final boolean DEBUG = false;
 
     @Override
     public void onReceive(Context context, Intent intent) {

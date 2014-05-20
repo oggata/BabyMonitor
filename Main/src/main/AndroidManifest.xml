@@ -9,7 +9,6 @@
 
     <!-- For Audio Recording-->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
-    <uses-feature android:name="android.hardware.microphone"/>
 
     <!-- For the disconnect alert notification.-->
     <uses-permission android:name="android.permission.VIBRATE"/>
@@ -24,14 +23,20 @@
     <uses-permission android:name="android.permission.SEND_SMS"/>
     <uses-permission android:name="android.permission.CALL_PHONE"/>
 
+    <uses-feature android:name="android.hardware.telephony" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.any" android:required="false" />
+    <uses-feature android:name="android.hardware.microphone"/>
+    <uses-feature android:name="android.hardware.screen.portrait"/>
+    <uses-feature android:name="android.hardware.wifi"/>
+
     <uses-sdk
         android:minSdkVersion="14"
-        android:maxSdkVersion="19"/>
+        android:targetSdkVersion="19"/>
 
     <application
         android:name=".objects.BabyMonitorAppObj"
         android:allowBackup="true"
-        android:icon="@drawable/app_icon"
+        android:icon="@drawable/ic_launcher"
         android:label="@string/app_name"
         android:theme="@style/AppTheme" >
         <activity

@@ -80,13 +80,13 @@ public  class SetupFragment extends BaseFragment {
         app.getStreamConnection().setWifiStatesListener(new WifiStatesListener() {
             @Override
             public void onEnabled() {
-                Log.d(TAG, "onEnabled");
+                if (DEBUG) Log.v(TAG, "onEnabled");
                 setTxtIp();
             }
 
             @Override
             public void onDisabled() {
-                Log.d(TAG, "onDisabled");
+                if (DEBUG) Log.v(TAG, "onDisabled");
                 setTxtIp();
 
 //                app.closeConnections();
@@ -94,13 +94,13 @@ public  class SetupFragment extends BaseFragment {
 
             @Override
             public void onConnected(String networkName) {
-                Log.d(TAG, " Wifi Listener onConnected, Network Name: " + networkName);
+                if (DEBUG) Log.v(TAG, " Wifi Listener onConnected, Network Name: " + networkName);
                 setTxtIp();
             }
 
             @Override
             public void onDisconnected() {
-                Log.d(TAG, "onDisconnected");
+                if (DEBUG) Log.v(TAG, "onDisconnected");
                 setTxtIp();
             }
         });
@@ -118,6 +118,7 @@ public  class SetupFragment extends BaseFragment {
 
                 if (v.isSelected())
                 {
+
                     v.setSelected(false);
 
                     app.closeConnections();

@@ -31,7 +31,7 @@ import braunster.babymonitor.objects.Prefs;
 public class ConnectedFragment extends BaseFragment implements View.OnClickListener {
 
     private static final String TAG = ConnectedFragment.class.getSimpleName();
-    private static final boolean DEBUG = true;
+    private static final boolean DEBUG = false;
 
     /* Views*/
     private Button btnPlayStop, btnDisconnect;

@@ -3,7 +3,6 @@ package braunster.babymonitor.database;
 
 import android.database.sqlite.SQLiteDatabase;
 import android.provider.BaseColumns;
-import android.util.Log;
 
 public class DB   {
 	
@@ -39,7 +38,7 @@ public class DB   {
 	// Upgrading database
 	public static void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
 		// Drop older table if existed
-		Log.d(TAG, " ON UPGRADE");
+//		Log.d(TAG, " ON UPGRADE");
 
         db.execSQL("DROP TABLE IF EXISTS " + Table.T_CALLS);
 

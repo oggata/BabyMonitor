@@ -21,7 +21,7 @@ import braunster.babymonitor.objects.BabyMonitorAppObj;
 public class BaseReceiver extends BroadcastReceiver {
 
     private static final String TAG = BaseReceiver.class.getSimpleName();
-    private static final boolean DEBUG = true;
+    private static final boolean DEBUG = false;
     BabyMonitorAppObj app = BabyMonitorAppObj.getInstance();
     Context context;
     IntentFilter filter;

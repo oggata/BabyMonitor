@@ -20,4 +20,9 @@
     <color name="background_color">#2B2B2B</color>
     <color name="app_grey">#AAAAAA</color>
     <color name="app_dark_grey">#5e5b5b</color>
+    <color name="agenta_red">#9e0039</color>
+    <color name="darker_cyan">#005b7f</color>
+    <color name="app_green">#89c167</color>
+    <color name="app_yellow">#fef5a5</color>
+
 </resources>

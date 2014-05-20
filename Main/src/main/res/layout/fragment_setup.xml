@@ -3,7 +3,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     tools:context="braunster.babymonitor.activities.MonitorActivity$PlaceholderFragment"
-    android:background="@color/app_grey"
+    android:background="@color/app_yellow"
     android:orientation="vertical">
 
     <RelativeLayout
@@ -39,14 +39,15 @@
                     <Button
                         android:layout_width="100dp"
                         android:layout_height="100dp"
-                        android:background="@drawable/baby_btn_selector"
+                        android:background="@drawable/baby_button_selector_blue"
                         android:id="@+id/btn_start_client"/>
 
                     <Button
                         android:layout_width="100dp"
                         android:layout_height="100dp"
                         android:id="@+id/btn_start_server"
-                        android:background="@drawable/parent_btn_selector"/>
+                        android:layout_marginLeft="20dp"
+                        android:background="@drawable/parent_button_selector_blue"/>
                 </LinearLayout>
 
                 <EditText
@@ -57,6 +58,7 @@
                     android:ems="10"
                     android:layout_marginTop="35dp"
                     android:padding="10dp"
+                    android:layout_gravity="center_horizontal"
                     android:id="@+id/et_server_ip"
                     android:hint="Server Ip"/>
 

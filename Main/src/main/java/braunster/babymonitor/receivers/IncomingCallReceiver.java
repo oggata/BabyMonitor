@@ -10,7 +10,7 @@ import android.util.Log;
 public class IncomingCallReceiver extends BaseReceiver {
 //TODO change to a service
     private static final String TAG = IncomingCallReceiver.class.getSimpleName();
-    private static final boolean DEBUG = true;
+    private static final boolean DEBUG = false;
 
     private static int IDLE = 0;
     private static int OUT_CALL = 1;

@@ -43,7 +43,7 @@ import braunster.babymonitor.objects.SimpleListAdapter;
 public class BaseFragment extends Fragment implements BaseFragmentInterface , CompoundButton.OnCheckedChangeListener{
 
     private static final String TAG = BaseFragment.class.getSimpleName();
-    private static final boolean DEBUG = true;
+    private static final boolean DEBUG = false;
 
     private static final int FADE_DURATION = 400;
 

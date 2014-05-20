@@ -16,7 +16,7 @@ import TCP.objects.InOutStreams;
 public class TCPStreamsOpener extends BaseThread {
 
     private static final String TAG = TCPStreamsOpener.class.getSimpleName();
-    private static final boolean DEBUG = true;
+    private static final boolean DEBUG = false;
 
     private OutputStream tmpOut ;
     private InputStream tmpIn;

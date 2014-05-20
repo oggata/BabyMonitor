@@ -4,23 +4,23 @@
 
     <item android:id="@+id/action_info"
         android:title="@string/action_info"
-        android:icon="@drawable/info_icon"
+        android:icon="@drawable/info_icon_white"
         android:showAsAction="always"/>
 
     <item android:id="@+id/action_audio_settings"
         android:title="@string/action_audio_settings"
-        android:icon="@drawable/audio_setting_icon"
+        android:icon="@drawable/audio_setting_icon_white"
         android:showAsAction="always"/>
 
 
     <item android:id="@+id/action_call_log"
         android:title="@string/action_call_log"
-        android:icon="@drawable/call_log_icon"
+        android:icon="@drawable/call_log_icon_white"
         android:showAsAction="always"/>
 
     <!-- Settings, should always be in the overflow -->
     <item android:id="@+id/action_settings"
         android:title="@string/action_settings"
-        android:icon="@drawable/settings_icon"
+        android:icon="@drawable/settings_icon_white"
         android:showAsAction="always"/>
 </menu>

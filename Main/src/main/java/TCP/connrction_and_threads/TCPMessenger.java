@@ -16,7 +16,7 @@ import TCP.xml.objects.XmlMessage;
 public class TCPMessenger extends BaseThread {
 
     private static final String TAG = TCPMessenger.class.getSimpleName();
-    private static final boolean DEBUG = true;
+    private static final boolean DEBUG = false;
     private boolean checkConnection = false;
 
     private static final int CHECK_INTERVALS = 5000;

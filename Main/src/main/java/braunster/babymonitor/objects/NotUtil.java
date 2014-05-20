@@ -28,7 +28,7 @@ public class NotUtil {
     public static final int NOTIFICATION_ALERT_ID = 1990;
 
     private static final String TAG = NotUtil.class.getSimpleName();
-    private static final boolean DEBUG = true;
+    private static final boolean DEBUG = false;
     public static final String TITLE = "title";
     public static final String TICKER = "ticker";
     public static final String CONTENT = "content";

@@ -46,7 +46,7 @@ public class MonitorActivity extends BaseActivity implements ActionEventListener
     private static WeakReference<MonitorActivity> wrActivity = null;
 
     private final String TAG = MonitorActivity.class.getSimpleName();
-    private static final boolean DEBUG = true;
+    private static final boolean DEBUG = false;
     private SetupFragment setupFragment;
     private ConnectedFragment connectedFragment;
 
@@ -119,13 +119,12 @@ public class MonitorActivity extends BaseActivity implements ActionEventListener
     private void actionBarSetup(boolean isConnected) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
             ActionBar ab = getActionBar();
-            ab.setTitle("Monitor");
             ab.setSubtitle(isConnected ? "Connected" : "Disconnected");
 
             if (isConnected)
-                getActionBar().setBackgroundDrawable(new ColorDrawable(Color.WHITE));
+                getActionBar().setBackgroundDrawable(new ColorDrawable(Color.BLACK));
             else
-                getActionBar().setBackgroundDrawable(new ColorDrawable(getResources().getColor(R.color.app_dark_grey)));
+                getActionBar().setBackgroundDrawable(new ColorDrawable(getResources().getColor(R.color.darker_cyan)));
 
         }
     }
@@ -288,6 +287,9 @@ public class MonitorActivity extends BaseActivity implements ActionEventListener
             @Override
             public void onConnectionFailed(String issue) {
                 if(DEBUG) Log.d(TAG, "Data Connection  Failed");
+
+                if (setupFragment != null)
+                    setupFragment.onFailed();
 
                 if (issue.equals(TCPConnection.ISSUE_OPENING_A_SERVER))
                 {

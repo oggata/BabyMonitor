@@ -1,25 +1,60 @@
 apply plugin: 'android'
 
 android {
-    compileSdkVersion 19
-    buildToolsVersion "19.0.1"
+      compileSdkVersion 19
+      buildToolsVersion '19.0.1'
 
-    defaultConfig {
-        minSdkVersion 14
-        targetSdkVersion 19
-        versionCode 1
-        versionName "1.0"
-    }
+      defaultConfig {
+          minSdkVersion 14
+          targetSdkVersion 19
+          versionCode 1
+          versionName "1.0"
+      }
+
+     signingConfigs {
+         release {
+             // We can leave these in environment variables
+             storeFile file('E:/Android Studio/bin/braunserkey')
+             keyAlias 'braunsteralias'
+
+             // These two lines make gradle believe that the signingConfigs
+             // section is complete. Without them, tasks like installRelease
+             // will not be available!
+             storePassword 'notYourRealPassword'
+             keyPassword 'notYourRealPassword'
+         }
+          }
+
     buildTypes {
         release {
-            runProguard false
+            runProguard true
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.txt'
+            signingConfig signingConfigs.release
+            debuggable false
+            jniDebugBuild false
+            zipAlign true
         }
     }
-}
+  }
 
 dependencies {
     compile fileTree(dir: 'libs', include: ['*.jar', '*.aar'])
     compile files('libs/commons-io-2.4.jar')
     compile files('C:/Users/itzik/Documents/GitHub/BabyMonitor/.idea/libraries/bugsense-3.6.jar')
 }
+
+task askForPasswords << {
+     // Must create String because System.readPassword() returns char[]
+     // (and assigning that below fails silently)
+     def storePw = new String(System.console().readPassword("Keystore password: "))
+     def keyPw  = new String(System.console().readPassword("Key password: "))
+
+     android.signingConfigs.release.storePassword = storePw
+     android.signingConfigs.release.keyPassword = keyPw
+ }
+
+tasks.whenTaskAdded { theTask ->
+     if (theTask.name.equals("packageRelease")) {
+         theTask.dependsOn "askForPasswords"
+     }
+ }

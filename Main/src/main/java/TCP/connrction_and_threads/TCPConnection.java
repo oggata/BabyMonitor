@@ -37,7 +37,7 @@ import TCP.xml.objects.XmlTag;
 public class TCPConnection {
     //TODO work on connection check
     private String TAG = Connection.class.getSimpleName();
-    private static final boolean DEBUG = true;
+    private static final boolean DEBUG = false;
 
     // The time passes between each check inside the communication thread.
     public static int TIME_BETWEEN_CHECKS = 1000 * 5;

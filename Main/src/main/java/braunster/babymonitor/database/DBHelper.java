@@ -3,7 +3,6 @@ package braunster.babymonitor.database;
 import android.content.Context;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
-import android.util.Log;
 
 public class DBHelper extends SQLiteOpenHelper {
 	String TAG = DBHelper.class.getSimpleName();
@@ -24,7 +23,7 @@ public class DBHelper extends SQLiteOpenHelper {
 
 	@Override
 	public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-		Log.d(TAG, " DB On Upgrade");
+//		Log.d(TAG, " DB On Upgrade");
 		DB.onUpgrade(db, oldVersion, newVersion);
 	}
 	
