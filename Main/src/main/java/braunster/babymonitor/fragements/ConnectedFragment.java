@@ -17,7 +17,8 @@ import android.widget.PopupWindow;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import TCP.connrction_and_threads.TCPConnection;
+import com.braunster.mymodule.app.connrction_and_threads.TCPConnection;
+
 import braunster.babymonitor.R;
 import braunster.babymonitor.activities.MonitorActivity;
 import braunster.babymonitor.objects.BabyMonitorAppObj;
@@ -266,6 +267,14 @@ public class ConnectedFragment extends BaseFragment implements View.OnClickListe
             // Removing the audio mode saved.
             app.prefs.edit().remove(Prefs.AUDIO_MODE);
         }
+    }
+
+    public void setOn(){
+        btnPlayStop.setSelected(true);
+    }
+
+    public void setOff(){
+        btnPlayStop.setSelected(false);
     }
 
     /** popups */

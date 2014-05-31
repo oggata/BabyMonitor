@@ -4,6 +4,7 @@
     <modules>
       <module fileurl="file://$PROJECT_DIR$/BabyMonitor.iml" filepath="$PROJECT_DIR$/BabyMonitor.iml" />
       <module fileurl="file://$PROJECT_DIR$/Main/Main.iml" filepath="$PROJECT_DIR$/Main/Main.iml" />
+      <module fileurl="file://$PROJECT_DIR$/TCPConnection/TCPConnection.iml" filepath="$PROJECT_DIR$/TCPConnection/TCPConnection.iml" />
     </modules>
   </component>
 </project>

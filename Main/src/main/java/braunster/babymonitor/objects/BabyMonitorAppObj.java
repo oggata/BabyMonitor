@@ -5,9 +5,9 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.preference.PreferenceManager;
 
+import com.braunster.mymodule.app.connrction_and_threads.TCPConnection;
 import com.bugsense.trace.BugSenseHandler;
 
-import TCP.connrction_and_threads.TCPConnection;
 import braunster.babymonitor.database.CallsDataSource;
 
 /**

@@ -14,9 +14,10 @@ import android.widget.PopupWindow;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import TCP.connrction_and_threads.AudioStreamController;
-import TCP.connrction_and_threads.TCPConnection;
-import TCP.interfaces.WifiStatesListener;
+import com.braunster.mymodule.app.connrction_and_threads.AudioStreamController;
+import com.braunster.mymodule.app.connrction_and_threads.TCPConnection;
+import com.braunster.mymodule.app.interfaces.WifiStatesListener;
+
 import braunster.babymonitor.R;
 import braunster.babymonitor.objects.Prefs;
 
@@ -82,14 +83,14 @@ public  class SetupFragment extends BaseFragment {
             public void onEnabled() {
                 if (DEBUG) Log.v(TAG, "onEnabled");
                 setTxtIp();
+                enableButtons();
             }
 
             @Override
             public void onDisabled() {
                 if (DEBUG) Log.v(TAG, "onDisabled");
                 setTxtIp();
-
-//                app.closeConnections();
+                disableButtons();
             }
 
             @Override
@@ -314,36 +315,37 @@ public  class SetupFragment extends BaseFragment {
         btnServer.setSelected(false);
     }
 
+    private void enableButtons(){
+        btnClient.setEnabled(true);
+         btnServer.setEnabled(true);
+    }
+
+    private void disableButtons(){
+        btnServer.setEnabled(false);
+        btnClient.setEnabled(false);
+    }
     /* ----- Show/Hide Views ----*/
     /*Server And Client Buttons*/
     private void showServerClientButtons(){
         fadeViewIn(liServerClientBtn);
 
-        btnClient.setEnabled(true);
-        btnServer.setEnabled(true);
+        enableButtons();
     }
     private void hideServerClientButtons(){
         fadeViewOut(liServerClientBtn);
 
-        btnClient.setEnabled(false);
-        btnServer.setEnabled(false);
+        disableButtons();
     }
     /*All content*/
     @Override
     public void showContent(){
         super.showContent();
         fadeViewIn(mainView.findViewById(R.id.linear_content));
-
-        btnClient.setEnabled(true);
-        btnServer.setEnabled(true);
     }
     @Override
     public void hideContent(){
         super.hideContent();
         fadeViewOut(mainView.findViewById(R.id.linear_content));
-
-        btnClient.setEnabled(false);
-        btnServer.setEnabled(false);
     }
 
     /*--- First Cases ---*/
@@ -363,6 +365,4 @@ public  class SetupFragment extends BaseFragment {
             app.prefs.edit().putBoolean(Prefs.FIRST_SETTING, false).commit();
         }
     }
-
-
 }

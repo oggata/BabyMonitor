@@ -9,10 +9,11 @@ import android.net.Uri;
 import android.provider.ContactsContract;
 import android.util.Log;
 
-import TCP.objects.TList;
-import TCP.xml.objects.XmlAttr;
-import TCP.xml.objects.XmlMessage;
-import TCP.xml.objects.XmlTag;
+import com.braunster.mymodule.app.objects.TList;
+import com.braunster.mymodule.app.xml.objects.XmlAttr;
+import com.braunster.mymodule.app.xml.objects.XmlMessage;
+import com.braunster.mymodule.app.xml.objects.XmlTag;
+
 import braunster.babymonitor.objects.BabyMonitorAppObj;
 
 /**

@@ -2,6 +2,8 @@ package braunster.babymonitor;
 
 import android.util.Log;
 
+import com.braunster.mymodule.app.archive.XMLParser;
+
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -12,8 +14,6 @@ import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
-
-import TCP.archive.XMLParser;
 
 /**
  * Created by itzik on 2/25/14.

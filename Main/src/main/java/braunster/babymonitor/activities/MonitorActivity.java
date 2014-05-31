@@ -19,19 +19,20 @@ import android.util.Log;
 import android.view.View;
 import android.widget.Toast;
 
+import com.braunster.mymodule.app.connrction_and_threads.TCPConnection;
+import com.braunster.mymodule.app.interfaces.ActionEventListener;
+import com.braunster.mymodule.app.interfaces.ConnectionStateChangeListener;
+import com.braunster.mymodule.app.interfaces.IncomingDataListener;
+import com.braunster.mymodule.app.interfaces.onConnectionLostListener;
+import com.braunster.mymodule.app.objects.TList;
+import com.braunster.mymodule.app.xml.objects.XmlAttr;
+import com.braunster.mymodule.app.xml.objects.XmlMessage;
+import com.braunster.mymodule.app.xml.objects.XmlTag;
+
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.List;
 
-import TCP.connrction_and_threads.TCPConnection;
-import TCP.interfaces.ActionEventListener;
-import TCP.interfaces.ConnectionStateChangeListener;
-import TCP.interfaces.IncomingDataListener;
-import TCP.interfaces.onConnectionLostListener;
-import TCP.objects.TList;
-import TCP.xml.objects.XmlAttr;
-import TCP.xml.objects.XmlMessage;
-import TCP.xml.objects.XmlTag;
 import braunster.babymonitor.R;
 import braunster.babymonitor.fragements.BaseFragment;
 import braunster.babymonitor.fragements.ConnectedFragment;
@@ -149,8 +150,6 @@ public class MonitorActivity extends BaseActivity implements ActionEventListener
                 fragmentExtras.putString(XML_ATTRIBUTE_BATTERY_STATUS, batteryStatus);
             }
 
-
-
         createF(connectedFragment);
     }
 
@@ -172,7 +171,7 @@ public class MonitorActivity extends BaseActivity implements ActionEventListener
 
         FragmentTransaction ft = wrActivity.get().getFragmentManager().beginTransaction();
 
-        ft.setCustomAnimations(R.anim.in_left, R.anim.out_right);
+        ft.setCustomAnimations(R.anim.fade_in_fragment, R.anim.fade_out_fragment);
 
         ft.replace(R.id.container, f).commitAllowingStateLoss();
 
@@ -477,7 +476,17 @@ public class MonitorActivity extends BaseActivity implements ActionEventListener
         if (action.equals(TCPConnection.ACTION_TOGGLE_CONTROLLER))
         {
             if (connectedFragment != null)
-                NotUtil.createConnectedNotification(MonitorActivity.this, intent.getExtras().getBoolean(TCPConnection.CONTROLLER_ACTION_RESULT, false), app.getDataConnection().isServer());
+            {
+                boolean isOn = intent.getExtras().getBoolean(TCPConnection.CONTROLLER_ACTION, false);
+
+                if (DEBUG) Log.d(TAG, "isOn: " + String.valueOf(isOn));
+
+                NotUtil.createConnectedNotification(MonitorActivity.this, isOn, app.getDataConnection().isServer());
+
+                if (isOn)
+                    connectedFragment.setOn();
+                else connectedFragment.setOff();
+            }
         }
         else if (action.equals(TCPConnection.ACTION_CLOSE_CONNECTION))
         {
@@ -631,7 +640,7 @@ public class MonitorActivity extends BaseActivity implements ActionEventListener
         getIntent().removeExtra(extra);
     }
 
-    class IncomingData implements IncomingDataListener{
+    class IncomingData implements IncomingDataListener {
         XmlAttr attr;
 
         @Override

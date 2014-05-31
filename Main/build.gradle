@@ -2,20 +2,20 @@ apply plugin: 'android'
 
 android {
       compileSdkVersion 19
-      buildToolsVersion '19.0.1'
+      buildToolsVersion '19.0.3'
 
       defaultConfig {
           minSdkVersion 14
           targetSdkVersion 19
           versionCode 1
-          versionName "1.0"
+          versionName "1.1"
       }
 
      signingConfigs {
          release {
              // We can leave these in environment variables
-             storeFile file('E:/Android Studio/bin/braunserkey')
-             keyAlias 'braunsteralias'
+             storeFile file(System.getenv("KEY_STORE"))
+             keyAlias System.getenv("KEY_ALIAS")
 
              // These two lines make gradle believe that the signingConfigs
              // section is complete. Without them, tasks like installRelease
@@ -39,8 +39,8 @@ android {
 
 dependencies {
     compile fileTree(dir: 'libs', include: ['*.jar', '*.aar'])
-    compile files('libs/commons-io-2.4.jar')
     compile files('C:/Users/itzik/Documents/GitHub/BabyMonitor/.idea/libraries/bugsense-3.6.jar')
+    compile project(':TCPConnection')
 }
 
 task askForPasswords << {

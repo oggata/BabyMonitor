@@ -3,7 +3,7 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:orientation="vertical" android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@android:color/transparent">
+    android:background="@color/darker_cyan">
 
     <CheckBox
         android:layout_width="wrap_content"
@@ -11,6 +11,7 @@
         android:text="Use call forwarding service."
         android:id="@+id/chk_box_forward_calls"
         android:layout_gravity="left"
+        android:textColor="@color/white"
         android:paddingTop="10dp"/>
 
 
@@ -19,6 +20,7 @@
         android:layout_height="wrap_content"
         android:text="pass sms notifications."
         android:id="@+id/chk_box_get_notifications_about_sms_received"
+        android:textColor="@color/white"
         android:layout_gravity="left"
         android:paddingTop="10dp"/>
 
@@ -26,6 +28,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Auto enter silent mode when connected."
+        android:textColor="@color/white"
         android:id="@+id/chk_box_enable_auto_silent_mode"
         android:paddingTop="10dp"
         android:layout_gravity="left" />
@@ -35,6 +38,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Auto restore audio mode when disconnected."
+        android:textColor="@color/white"
         android:id="@+id/chk_box_enable_auto_restore_phone_audio_mode"
         android:paddingTop="10dp"
         android:layout_gravity="left" />
@@ -45,6 +49,7 @@
         android:layout_height="wrap_content"
         android:id="@+id/txt_cancel_call_forwarding_service"
         android:padding="10dp"
+        android:textColor="@color/white"
         android:text="Cancel call forwarding service"/>
 
     <Button

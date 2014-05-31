@@ -6,8 +6,9 @@ import android.os.Bundle;
 import android.telephony.SmsMessage;
 import android.util.Log;
 
-import TCP.objects.TList;
-import TCP.xml.objects.XmlAttr;
+import com.braunster.mymodule.app.objects.TList;
+import com.braunster.mymodule.app.xml.objects.XmlAttr;
+
 import braunster.babymonitor.activities.MonitorActivity;
 import braunster.babymonitor.objects.Prefs;
 

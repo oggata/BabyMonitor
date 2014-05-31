@@ -25,11 +25,12 @@ import android.widget.RadioGroup;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.braunster.mymodule.app.connrction_and_threads.AudioStreamController;
+import com.braunster.mymodule.app.objects.TList;
+import com.braunster.mymodule.app.xml.objects.XmlAttr;
+
 import java.util.ArrayList;
 
-import TCP.connrction_and_threads.AudioStreamController;
-import TCP.objects.TList;
-import TCP.xml.objects.XmlAttr;
 import braunster.babymonitor.R;
 import braunster.babymonitor.activities.MonitorActivity;
 import braunster.babymonitor.objects.BabyMonitorAppObj;
@@ -177,6 +178,8 @@ public class BaseFragment extends Fragment implements BaseFragmentInterface , Co
 
             v.setBackgroundColor(Color.BLACK);
         }
+        else v.setBackgroundResource(R.color.darker_cyan);
+
 
         hideContent();
 
@@ -198,7 +201,7 @@ public class BaseFragment extends Fragment implements BaseFragmentInterface , Co
     }
 
     @Override
-    public void createCallLogPopup(final boolean connected, String sessionId) {
+    public void createCallLogPopup(final boolean connected, String sessionId, View dropDownView) {
         dismissIncomingDataPopup();
         dismissAllPopups();
 
@@ -211,7 +214,12 @@ public class BaseFragment extends Fragment implements BaseFragmentInterface , Co
         final ArrayList<Call> calls = app.getCallsDataSource().getAllCalls(app.getDataSessionId());
 
         if (calls.size() > 0) {
-            ((ListView) v.findViewById(R.id.list_log)).setAdapter(new SimpleListAdapter(getActivity(), app.getCallsDataSource().getAllCalls(sessionId)));
+            SimpleListAdapter simpleListAdapter = new SimpleListAdapter(getActivity(), app.getCallsDataSource().getAllCalls(sessionId));
+
+            if (connected)
+                simpleListAdapter.setTextColor(Color.WHITE);
+
+            ((ListView) v.findViewById(R.id.list_log)).setAdapter(simpleListAdapter);
 
             ((ListView) v.findViewById(R.id.list_log)).setOnItemClickListener(new AdapterView.OnItemClickListener() {
                 @Override
@@ -221,6 +229,13 @@ public class BaseFragment extends Fragment implements BaseFragmentInterface , Co
             });
         }
         else ((TextView)v.findViewById(R.id.txt_header)).setText("No Calls");
+
+        if (connected)
+        {
+            v.setBackgroundColor(Color.BLACK);
+            ((TextView)v.findViewById(R.id.txt_header)).setTextColor(Color.WHITE);
+        }
+        else v.setBackgroundResource(R.color.darker_cyan);
 
         // Dismiss the popup.
         v.findViewById(R.id.btn_dismiss).setOnClickListener(new View.OnClickListener() {
@@ -249,7 +264,9 @@ public class BaseFragment extends Fragment implements BaseFragmentInterface , Co
         callLogPopup.setHeight(v.getLayoutParams().WRAP_CONTENT);
         callLogPopup.setAnimationStyle(R.style.PopupAnimation);
 
-        callLogPopup.showAtLocation(mainView, Gravity.CENTER, 0, 0);
+        if (dropDownView == null)
+            callLogPopup.showAtLocation(mainView, Gravity.CENTER, 0, 0);
+        else callLogPopup.showAsDropDown(dropDownView);
     }
 
     @Override
@@ -366,9 +383,8 @@ public class BaseFragment extends Fragment implements BaseFragmentInterface , Co
         if (connected)
         {
             v.setBackgroundColor(Color.BLACK);
-            ((TextView)v.findViewById(R.id.txt_header)).setTextColor(Color.WHITE);
         }
-        else v.setBackgroundResource(R.color.app_grey);
+        else v.setBackgroundResource(R.color.darker_cyan);
 
         // Showing the user all his available SampleRates
         for ( int rate : AudioStreamController.getSupportedSampleRates())
@@ -379,8 +395,9 @@ public class BaseFragment extends Fragment implements BaseFragmentInterface , Co
                 radio.setChecked(true);
 
             radio.setText(String.valueOf(rate));
-            if (connected)
-                radio.setTextColor(Color.WHITE);
+
+            radio.setTextColor(Color.WHITE);
+
             radio.setId(rate);
             radioGrp.addView(radio);
         }

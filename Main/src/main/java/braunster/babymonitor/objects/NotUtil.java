@@ -13,9 +13,10 @@ import android.os.Bundle;
 import android.util.Log;
 import android.widget.RemoteViews;
 
+import com.braunster.mymodule.app.connrction_and_threads.TCPConnection;
+
 import java.util.MissingResourceException;
 
-import TCP.connrction_and_threads.TCPConnection;
 import braunster.babymonitor.R;
 import braunster.babymonitor.activities.MonitorActivity;
 
@@ -109,28 +110,23 @@ public class NotUtil {
         // Extra which controller to use. Server use sound player client us recorder
         playStopIntent.putExtra(TCPConnection.CONTROLLER,
                 isServer ? TCPConnection.CONTROLLER_SOUND_PLAYER : TCPConnection.CONTROLLER_SOUND_RECORDER);
-        PendingIntent playStopPendingIntent = PendingIntent.getBroadcast(context, 1, playStopIntent, 0);
+        // The action to do, opposite from the current state so if streaming, stop streaming.
+        playStopIntent.putExtra(TCPConnection.CONTROLLER_ACTION, !isStreaming);
 
-        if (isServer)
-        {
-            if (isStreaming)
-                contentView.setImageViewResource(R.id.btn_controller, R.drawable.stop_btn);
-            else
-                contentView.setImageViewResource(R.id.btn_controller, R.drawable.play_btn);
-        }
+        PendingIntent playStopPendingIntent = PendingIntent.getBroadcast(context, 1, playStopIntent, PendingIntent.FLAG_UPDATE_CURRENT
+        );
+
+        if (isStreaming)
+            contentView.setImageViewResource(R.id.btn_controller, R.drawable.stop_btn);
         else
-        {
-            if (isStreaming)
-                contentView.setImageViewResource(R.id.btn_controller, R.drawable.stop_btn);
-            else
-                contentView.setImageViewResource(R.id.btn_controller, R.drawable.play_btn);
-        }
+            contentView.setImageViewResource(R.id.btn_controller, R.drawable.play_btn);
 
         contentView.setOnClickPendingIntent(R.id.btn_controller, playStopPendingIntent);
 
         // Listener for the text message
         Intent messageIntent =new Intent(context, MonitorActivity.class);
-        PendingIntent messagePendingIntent = PendingIntent.getActivity(context, 1, messageIntent, 0);
+        PendingIntent messagePendingIntent = PendingIntent.getActivity(context, 1, messageIntent, PendingIntent.FLAG_UPDATE_CURRENT
+        );
         contentView.setOnClickPendingIntent(R.id.txt_message, messagePendingIntent);
 
         // Notification Object from Builder

@@ -9,6 +9,7 @@
           <set>
             <option value="$PROJECT_DIR$" />
             <option value="$PROJECT_DIR$/Main" />
+            <option value="$PROJECT_DIR$/TCPConnection" />
           </set>
         </option>
       </GradleProjectSettings>

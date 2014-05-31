@@ -5,6 +5,7 @@ import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
+import android.view.View;
 
 import braunster.babymonitor.R;
 import braunster.babymonitor.fragements.BaseFragment;
@@ -36,18 +37,19 @@ public class BaseActivity extends Activity{
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         // Handle presses on the action bar items
+        View dropDownView = findViewById(item.getItemId());
         switch (item.getItemId()) {
             case R.id.action_info:
                 fragment.createInfoPopup(app.getDataConnection().isConnected());
                 return true;
             case R.id.action_settings:
-                fragment.createSettingsPopup(fragment instanceof ConnectedFragment ? true : false, findViewById(R.id.action_settings));
+                fragment.createSettingsPopup(fragment instanceof ConnectedFragment ? true : false, dropDownView);
                 return true;
             case R.id.action_audio_settings:
-                fragment.createAudioSettingPopup(app.getDataConnection().isConnected(), findViewById(R.id.action_audio_settings));
+                fragment.createAudioSettingPopup(app.getDataConnection().isConnected(), dropDownView);
                 return true;
             case R.id.action_call_log:
-                fragment.createCallLogPopup(app.getDataConnection().isConnected(), app.getDataSessionId());
+                fragment.createCallLogPopup(app.getDataConnection().isConnected(), app.getDataSessionId(), dropDownView);
                 return true;
             default:
                 return super.onOptionsItemSelected(item);
